@@ -1,0 +1,168 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #151719;
+  --bg-secondary: #222528;
+  --bg-card: #292C2F;
+  --color-yellow: #FFB800;
+  --color-yellow-bright: #FFC928;
+  --text-primary: #F5F5F2;
+  --text-secondary: #B8B8B3;
+  --border-industrial: #51504A;
+  --metallic-highlight: #777A7C;
+}
+
+html, body, #root {
+  width: 100%;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: clip;
+  background-color: #151719;
+  color: #F5F5F2;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+}
+
+:fullscreen, :-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  overflow-y: auto;
+  background-color: #151719;
+}
+
+/* =========================================================================
+   RETRO INDUSTRIAL UTILITIES & TEXTURES
+   ========================================================================= */
+
+/* Industrial Primary Canvas */
+.bg-industrial-primary {
+  background-color: #151719;
+}
+
+/* Industrial Secondary Surface */
+.bg-industrial-secondary {
+  background-color: #222528;
+}
+
+/* Industrial Card Surface */
+.bg-industrial-card {
+  background-color: #292C2F;
+}
+
+/* Industrial Borders */
+.border-industrial {
+  border-color: #51504A;
+}
+
+.border-industrial-highlight {
+  border-color: #777A7C;
+}
+
+/* Brushed Steel Gradient */
+.brushed-steel {
+  background: linear-gradient(180deg, #25282B 0%, #1D1F22 100%);
+  border: 1px solid #51504A;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.brushed-steel-header {
+  background: linear-gradient(180deg, #1D2023 0%, #151719 100%);
+  border-bottom: 1px solid #51504A;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 184, 0, 0.15);
+}
+
+.industrial-card {
+  background-color: #292C2F;
+  border: 1px solid #51504A;
+  transition: all 0.2s ease-in-out;
+}
+
+.industrial-card:hover {
+  border-color: #777A7C;
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 184, 0, 0.2);
+}
+
+/* Restrained Hazard Stripe Accent */
+.hazard-stripe-sm {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    #FFB800 0,
+    #FFB800 6px,
+    #151719 6px,
+    #151719 12px
+  );
+}
+
+/* Industrial Rivet Element */
+.industrial-rivet {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #9A9E9F, #51504A 70%, #292C2F);
+  box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.3);
+  display: inline-block;
+}
+
+/* Subtle Technical Grid Overlay */
+.tech-grid-pattern {
+  background-image: linear-gradient(to right, rgba(81, 80, 74, 0.12) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(81, 80, 74, 0.12) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Primary Yellow Button */
+.btn-industrial-yellow {
+  background-color: #FFB800;
+  color: #151719;
+  font-weight: 700;
+  border: 1px solid #FFC928;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-industrial-yellow:hover {
+  background-color: #FFC928;
+  box-shadow: 0 0 12px rgba(255, 184, 0, 0.35);
+}
+
+.btn-industrial-yellow:active {
+  transform: translateY(1px);
+}
+
+/* Industrial Secondary Button */
+.btn-industrial-dark {
+  background-color: #292C2F;
+  color: #F5F5F2;
+  border: 1px solid #51504A;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn-industrial-dark:hover {
+  background-color: #34373B;
+  border-color: #777A7C;
+  color: #FFB800;
+}
+
+/* Typography Helpers */
+.font-mono-numbers {
+  font-family: 'Space Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #151719;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #51504A;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #FFB800;
+}

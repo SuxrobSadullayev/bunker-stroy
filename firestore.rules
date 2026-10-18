@@ -1,0 +1,115 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == 'accauntx7@gmail.com' && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidOrder(data) {
+      return data.id is string && isValidId(data.id) &&
+        data.buyerId is string && isValidId(data.buyerId) &&
+        data.totalAmount is number && data.totalAmount >= 0 &&
+        data.status is string && data.status in ['pending', 'confirmed', 'assigned', 'in_transit', 'delivered', 'cancelled'] &&
+        data.deliveryAddress is string && data.deliveryAddress.size() <= 500;
+    }
+
+    function isValidUser(data) {
+      return data.id is string && isValidId(data.id) &&
+        data.email is string && data.email.size() <= 256 &&
+        data.displayName is string && data.displayName.size() <= 128;
+    }
+
+    function isValidLog(data) {
+      return data.id is string && isValidId(data.id) &&
+        data.action is string && data.action.size() <= 128 &&
+        data.actor is string && data.actor.size() <= 128;
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isValidId(userId) &&
+        incoming().id == userId &&
+        isValidUser(incoming());
+      allow update: if isValidId(userId) &&
+        incoming().id == existing().id &&
+        (isOwner(userId) || isAdmin() || incoming().id == userId);
+      allow delete: if isAdmin();
+    }
+
+    // Products catalog
+    match /products/{productId} {
+      allow read: if true;
+      allow create, update, delete: if isSignedIn() || isAdmin();
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      allow read: if true;
+      allow create: if isValidId(orderId) &&
+        incoming().id == orderId &&
+        isValidOrder(incoming());
+      allow update: if isValidId(orderId) && (
+        isAdmin() || (isSignedIn() && (resource.data.buyerId == request.auth.uid || isOwner(resource.data.buyerId)))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Logistics Dispatches
+    match /logistics/{dispatchId} {
+      allow read: if true;
+      allow create, update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ESCO Audits
+    match /esco_audits/{auditId} {
+      allow read: if true;
+      allow create: if isValidId(auditId) &&
+        incoming().id == auditId &&
+        incoming().clientId is string &&
+        incoming().buildingType is string &&
+        incoming().areaM2 is number;
+      allow update: if isSignedIn() || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Cabinet Activity & Security Logs
+    match /cabinet_logs/{logId} {
+      allow read: if true;
+      allow create: if isValidId(logId) &&
+        incoming().id == logId &&
+        isValidLog(incoming());
+      allow update, delete: if isAdmin();
+    }
+  }
+}

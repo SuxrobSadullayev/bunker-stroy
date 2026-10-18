@@ -1,0 +1,58 @@
+import { Product, LogisticsVehicle } from '../types';
+
+export const INITIAL_PRODUCTS: Product[] = [];
+
+export const INITIAL_VEHICLES: LogisticsVehicle[] = [
+  {
+    id: 'veh-1',
+    name: 'KAMAZ 6520 Samosval (20 tonna)',
+    type: 'samosval',
+    capacityTons: 20,
+    pricePerKm: 14000,
+    basePrice: 350000,
+    available: true,
+    driverName: 'Sherzodbek Rahimov',
+    phone: '+998 90 123 45 67',
+    currentLocation: 'Sergeli qurilish bozori',
+    image: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'veh-2',
+    name: 'ISUZU Kran-Manipulyator (5t yuk / 3t strela)',
+    type: 'kran_manipulyator',
+    capacityTons: 5,
+    pricePerKm: 12000,
+    basePrice: 400000,
+    available: true,
+    driverName: 'Dilshod Karimov',
+    phone: '+998 93 987 65 43',
+    currentLocation: 'Uchtepa, O‘rikzor yo‘li',
+    image: 'https://images.unsplash.com/photo-1580901368919-8438f6b1450a?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'veh-3',
+    name: 'HOWO Beton Mikser (10 m³)',
+    type: 'mikser',
+    capacityTons: 25,
+    pricePerKm: 18000,
+    basePrice: 600000,
+    available: true,
+    driverName: 'Javohir To‘rayev',
+    phone: '+998 97 555 44 33',
+    currentLocation: 'Chirchiq Beton Zavodi',
+    image: 'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'veh-4',
+    name: 'Gazel Next Bortli (1.5 - 2.5 tonna)',
+    type: 'gazel',
+    capacityTons: 2.5,
+    pricePerKm: 8000,
+    basePrice: 180000,
+    available: true,
+    driverName: 'Farrux Olimov',
+    phone: '+998 99 444 33 22',
+    currentLocation: 'Bekto‘pi Qurilish majmuasi',
+    image: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=600&auto=format&fit=crop&q=80',
+  },
+];
