@@ -568,14 +568,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const adminConfig = getAdminConfig();
 
-    // 1. Bosh Admin hisobini tekshirish
+    // 1. Bosh Admin hisobini tekshirish (Talab: Login: AA, Parol: A)
     const isAdminLoginMatch = 
+      trimmedLogin.toUpperCase() === 'AA' ||
       trimmedLogin.toLowerCase() === adminConfig.login.toLowerCase() || 
       trimmedLogin.toLowerCase() === 'admin' ||
       trimmedLogin.toLowerCase() === `${adminConfig.login.toLowerCase()}@bunkerstroy.uz` ||
       trimmedLogin.toLowerCase() === 'admin@bunkerstroy.uz';
 
     const isAdminPassMatch = 
+      trimmedPass === 'A' ||
+      trimmedPass.toUpperCase() === 'A' ||
       trimmedPass === adminConfig.password ||
       trimmedPass === '12345' ||
       trimmedPass === 'Aquarius.102';
@@ -583,13 +586,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (isAdminLoginMatch && isAdminPassMatch) {
       const adminProfile: UserProfile = {
         id: 'admin-master',
-        email: `${adminConfig.login.toLowerCase()}@bunkerstroy.uz`,
+        email: `${(adminConfig.login || 'AA').toLowerCase()}@bunkerstroy.uz`,
         displayName: 'Bosh Admin',
         role: 'admin',
         phone: '+998 71 200 00 50',
         companyName: 'BunkerStroy Bosh Boshqarmasi',
         createdAt: new Date().toISOString(),
       };
+
+      try {
+        localStorage.removeItem('bunkerstroy_admin_locked');
+      } catch {}
+      window.dispatchEvent(new CustomEvent('bunkerstroy_unlock_admin'));
 
       try {
         await setDoc(doc(db, 'users', adminProfile.id), adminProfile, { merge: true });
@@ -790,6 +798,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   aria-label="Parol ko‘rinishi"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginInput('AA');
+                    setPasswordInput('A');
+                    setError(null);
+                  }}
+                  className="text-[11px] font-mono text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20"
+                >
+                  <span>Admin kirish: Login: <b>AA</b> | Parol: <b>A</b></span>
                 </button>
               </div>
             </div>

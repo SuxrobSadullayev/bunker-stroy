@@ -162,32 +162,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Global Bunker
             </button>
-            {user && (
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
-                  activeTab === 'orders'
-                    ? 'text-[#FFB800] border-b-2 border-[#FFB800] pb-1'
-                    : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
-                }`}
-              >
-                Buyurtmalarim
-              </button>
-            )}
-
-            {user && (
-              <button
-                onClick={() => setActiveTab('orders')}
-                className={`transition-colors whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                  activeTab === 'orders'
-                    ? 'text-[#FFB800] border-b-2 border-[#FFB800] pb-1'
-                    : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
-                }`}
-              >
-                <span>Mijoz Kabineti</span>
-              </button>
-            )}
-
             {isSupplier && (
               <button
                 onClick={() => setActiveTab('supplier')}
@@ -202,75 +176,59 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
 
-            {/* Alohida Admin Panel tugmasi */}
-            <button
-              onClick={() => setActiveTab('admin')}
-              className="px-3 py-1.5 rounded-lg bg-[#222528] hover:bg-[#292C2F] border border-[#FFB800]/60 hover:border-[#FFB800] text-[#FFB800] text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap shadow-sm"
-              title="Alohida Admin Boshqaruv Paneliga o'tish"
-            >
-              <ShieldAlert className="w-3.5 h-3.5 text-[#FFB800]" />
-              <span>Admin Panel</span>
-            </button>
-            
-            {/* Shopping Cart Button - Bosh panelda doimo ko'rinadi */}
+            {/* Shopping Cart Button - Savatda mahsulot bo'lganda yashil bo'lib ozgina yorqinlashadi */}
             <button
               onClick={onOpenCart}
-              className="relative p-2 sm:px-3 sm:py-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] hover:border-[#777A7C] text-[#F5F5F2] transition-all shadow-sm cursor-pointer flex items-center gap-2 group"
+              className={`relative p-2 sm:px-3 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 group ${
+                cartCount > 0
+                  ? 'bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.45)] ring-1 ring-emerald-500/40'
+                  : 'bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] hover:border-[#777A7C] text-[#F5F5F2] shadow-sm'
+              }`}
               aria-label="Savat"
               title="Savat"
             >
-              <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5 text-[#FFB800] group-hover:scale-105 transition-transform" />
-              <span className="text-xs font-mono hidden sm:inline text-[#B8B8B3] group-hover:text-[#F5F5F2]">
+              <ShoppingCart
+                className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-105 ${
+                  cartCount > 0
+                    ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.7)]'
+                    : 'text-[#FFB800]'
+                }`}
+              />
+              <span
+                className={`text-xs font-mono hidden sm:inline ${
+                  cartCount > 0
+                    ? 'text-emerald-300 font-bold drop-shadow-[0_0_5px_rgba(16,185,129,0.4)]'
+                    : 'text-[#B8B8B3] group-hover:text-[#F5F5F2]'
+                }`}
+              >
                 Savat
               </span>
               {cartCount > 0 && (
-                <span className="bg-[#FFB800] text-[#151719] text-[11px] font-bold font-mono px-1.5 py-0.2 rounded min-w-[18px] text-center border border-[#151719]">
+                <span className="bg-emerald-500 text-[#151719] text-[11px] font-black font-mono px-1.5 py-0.2 rounded min-w-[18px] text-center border border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse">
                   {cartCount}
                 </span>
               )}
             </button>
 
-            {/* Auth / Profile Button (YE va yelenabe yo'q; Admin bosilganda qulflanadi va parol so'raydi) */}
-            {user ? (
+            {/* Auth / Profile Button - Bosh panel uchun Bosh Admin / Lock Scren yoki Admin Panel kerak emas. Faqat Savat va Kabinetga Kirish (yoki oddiy mijoz profili) */}
+            {user && !isAdmin ? (
               <div className="flex items-center gap-2">
-                {isAdmin ? (
-                  <button
-                    onClick={() => {
-                      try {
-                        localStorage.setItem('bunkerstroy_admin_locked', 'true');
-                      } catch {}
-                      window.dispatchEvent(new CustomEvent('bunkerstroy_lock_admin'));
-                      setActiveTab('admin');
-                    }}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#FFB800] bg-[#222528] hover:bg-[#292C2F] text-[#FFB800] text-xs font-bold transition-all cursor-pointer shadow-sm group"
-                    title="Bosh Admin Kabinetini Bloklash (Lock Screen) - Parol so'raydi"
-                  >
-                    <div className="w-5 h-5 rounded bg-[#151719] text-[#FFB800] flex items-center justify-center border border-[#51504A] group-hover:border-[#FFB800]">
-                      <Lock className="w-3 h-3 text-[#FFB800]" />
-                    </div>
-                    <span className="hidden sm:inline font-mono">Bosh Admin</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#FFB800]/20 text-[#FFB800] border border-[#FFB800]/40 font-mono">
-                      Qulflash
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setActiveTab(isSupplier ? 'supplier' : 'orders')}
-                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
-                      activeTab === 'orders' || activeTab === 'supplier'
-                        ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928]'
-                        : 'bg-[#222528] text-[#F5F5F2] border-[#51504A] hover:border-[#777A7C]'
-                    }`}
-                    title="Kabinet"
-                  >
-                    <div className="w-5 h-5 rounded bg-[#151719] text-[#FFB800] font-mono font-bold flex items-center justify-center text-[10px] border border-[#51504A]">
-                      {getUserInitials(user)}
-                    </div>
-                    <span className="max-w-[120px] truncate hidden sm:inline font-medium">
-                      {user.firstName || user.displayName || 'Kabinet'}
-                    </span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setActiveTab(isSupplier ? 'supplier' : 'orders')}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs transition-all cursor-pointer ${
+                    activeTab === 'orders' || activeTab === 'supplier'
+                      ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928]'
+                      : 'bg-[#222528] text-[#F5F5F2] border-[#51504A] hover:border-[#777A7C]'
+                  }`}
+                  title="Kabinet"
+                >
+                  <div className="w-5 h-5 rounded bg-[#151719] text-[#FFB800] font-mono font-bold flex items-center justify-center text-[10px] border border-[#51504A]">
+                    {getUserInitials(user)}
+                  </div>
+                  <span className="max-w-[120px] truncate hidden sm:inline font-medium">
+                    {user.firstName || user.displayName || 'Kabinet'}
+                  </span>
+                </button>
                 <button
                   onClick={onLogout}
                   title="Chiqish"
@@ -281,7 +239,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             ) : (
               <button
-                onClick={onOpenAuth}
+                onClick={() => {
+                  if (isAdmin) {
+                    setActiveTab('admin');
+                  } else {
+                    onOpenAuth();
+                  }
+                }}
                 className="bg-[#DC2626] hover:bg-[#B91C1C] active:bg-[#991B1B] text-white border border-red-500/80 flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold shadow-md cursor-pointer whitespace-nowrap transition-colors"
               >
                 <UserIcon className="w-4 h-4 stroke-[2.5]" />
@@ -317,25 +281,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             Global Bunker
-          </button>
-          {user && (
-            <button
-              onClick={() => setActiveTab('orders')}
-              className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors ${
-                activeTab === 'orders' ? 'bg-[#FFB800] text-[#151719]' : 'text-[#B8B8B3] bg-[#222528]'
-              }`}
-            >
-              Buyurtmalarim
-            </button>
-          )}
-          <button
-            onClick={() => setActiveTab('admin')}
-            className={`px-3 py-1 rounded text-xs font-semibold whitespace-nowrap transition-colors flex items-center gap-1 ${
-              activeTab === 'admin' ? 'bg-[#FFB800] text-[#151719]' : 'text-[#FFB800] bg-[#222528] border border-[#FFB800]/40'
-            }`}
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>Admin</span>
           </button>
         </div>
 

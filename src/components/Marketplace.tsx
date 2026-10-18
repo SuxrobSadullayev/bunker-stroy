@@ -125,7 +125,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
   const [showRegionSelector, setShowRegionSelector] = useState(false);
   // Qidiruv filtri: Viloyat/shahar, Ta'mir kategoriyasi, Xususiyatlar (kv.m, rang) va Narx
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [filterTab, setFilterTab] = useState<'region' | 'category' | 'specs' | 'price'>('region');
+  const [filterTab, setFilterTab] = useState<'region' | 'category' | 'specs'>('region');
   
   // Mahsulot turlari (standart va qo'shilgan yangi toifalar)
   const [productTypes, setProductTypes] = useState<ProductTypeItem[]>(() => getProductTypes());
@@ -231,10 +231,10 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     );
   };
 
-  // Tanlangan viloyatlarga tegishli (yoki barcha) tuman va shaharlar ro'yxati
+  // Tanlangan viloyatlarga tegishli tuman va shaharlar ro'yxati (faqat viloyat tanlangandan so'ng chiqadi)
   const availableDistricts = selectedRegions.length > 0
     ? selectedRegions.flatMap((reg) => REGIONS_AND_DISTRICTS[reg] || [])
-    : Object.values(REGIONS_AND_DISTRICTS).flat();
+    : [];
 
   // Qidiruv sozlamalari bo'yicha nomzod tovarlar (narx oralig'ini avtomatik hisoblash uchun)
   const candidateProducts = products.filter((p) => {
@@ -346,12 +346,8 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     setIsFilterOpen((prev) => !prev);
   };
 
-  // Yakuniy narx filtri qo'llangan mahsulotlar
-  const filteredProducts = candidateProducts.filter((p) => {
-    const matchesMinPrice = minPrice === '' || p.price >= minPrice;
-    const matchesMaxPrice = maxPrice === '' || p.price <= maxPrice;
-    return matchesMinPrice && matchesMaxPrice;
-  });
+  // Yakuniy mahsulotlar (Bunker qidiruv filtrida narx oralig'i talab qilinmagan)
+  const filteredProducts = candidateProducts;
 
   // Mahsulot modalini ochish (Ekranni ikkiga bo'lmasdan tezkor ko'rish)
   const handleOpenPreview = (product: Product) => {
@@ -367,13 +363,10 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     }, 1500);
   };
 
-  // Barcha filtrlarni tozalash (drawer ichida ham, tashqarisida ham)
   const handleClearAllFilterCriteria = () => {
     setSelectedTypes([]);
     setSelectedRegions([]);
     setSelectedDistricts([]);
-    setMinPrice('');
-    setMaxPrice('');
     setMinSquareMeters('');
     setMaxSquareMeters('');
     setSelectedColors([]);
@@ -394,7 +387,6 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     return new Intl.NumberFormat('uz-UZ').format(price) + " so'm";
   };
 
-  const hasPriceFilter = minPrice !== '' || maxPrice !== '';
   const hasSquareMetersFilter = minSquareMeters !== '' || maxSquareMeters !== '';
   const hasSpecsFilter =
     hasSquareMetersFilter ||
@@ -407,7 +399,6 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     selectedRegions.length +
     selectedDistricts.length +
     selectedTypes.length +
-    (hasPriceFilter ? 1 : 0) +
     (hasSquareMetersFilter ? 1 : 0) +
     selectedColors.length +
     (onlyDelivery ? 1 : 0) +
@@ -426,7 +417,6 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
     selectedTypes.length > 0 ||
     selectedRegions.length > 0 ||
     selectedDistricts.length > 0 ||
-    hasPriceFilter ||
     hasSpecsFilter;
 
   const filteredRegionsList = allRegionsList.filter((reg) =>
@@ -578,22 +568,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
               );
             })}
 
-            {/* Narx filtri */}
-            {hasPriceFilter && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#292C2F] border border-[#51504A] text-[#F5F5F2] text-xs font-medium font-mono">
-                <Coins className="w-3 h-3 text-[#FFB800]" />
-                <span>
-                  {minPrice !== '' ? formatPrice(Number(minPrice)) : '0'} - {maxPrice !== '' ? formatPrice(Number(maxPrice)) : '∞'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setMinPrice(''); setMaxPrice(''); }}
-                  className="hover:text-red-400 cursor-pointer ml-0.5"
-                >
-                  <X className="w-3 h-3" />
-                </button>
-              </span>
-            )}
+
 
             {/* kv Metr filtri */}
             {hasSquareMetersFilter && (
@@ -700,9 +675,9 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
               </div>
             </div>
 
-            {/* 4 ta Bo'lim Tugmalari (Tablar): Viloyat & Shahar, Ta'mir kategoriyasi, Xususiyatlar, Narx oralig'i */}
+            {/* 3 ta Bo'lim Tugmalari (Tablar): Viloyat & Shahar, Ta'mir kategoriyasi, Xususiyatlar */}
             <div className="p-3 bg-[#1D2023] border-b border-[#51504A] shrink-0">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 p-1 bg-[#151719] rounded-xl border border-[#51504A] text-xs">
+              <div className="grid grid-cols-3 gap-1 p-1 bg-[#151719] rounded-xl border border-[#51504A] text-xs">
                 <button
                   type="button"
                   onClick={() => setFilterTab('region')}
@@ -748,22 +723,6 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
                   <span className="truncate">Xususiyatlar</span>
                   {hasSpecsFilter && (
                     <span className="w-2 h-2 rounded-full bg-[#FFB800] shrink-0"></span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setFilterTab('price')}
-                  className={`py-2 px-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer text-center ${
-                    filterTab === 'price'
-                      ? 'bg-[#FFB800] text-[#151719] shadow-sm font-bold'
-                      : 'text-[#B8B8B3] hover:text-[#F5F5F2] hover:bg-[#292C2F]'
-                  }`}
-                >
-                  <Coins className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">Narx oralig'i</span>
-                  {hasPriceFilter && (
-                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
                   )}
                 </button>
               </div>
@@ -823,62 +782,79 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
                     </div>
                   </div>
 
-                  {/* Shahar va tumanlar qismi */}
-                  <div className="space-y-2 pt-3 border-t border-[#51504A]">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#FFB800] uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                        <Building2 className="w-3.5 h-3.5 text-[#FFB800]" />
-                        <span>Tuman va shaharlar</span>
-                        {selectedDistricts.length > 0 && (
-                          <span className="text-[11px] font-bold font-mono px-2 py-0.2 rounded bg-[#FFB800] text-[#151719]">
-                            {selectedDistricts.length}
+                  {/* Shahar va tumanlar qismi (Faqat viloyat belgilagandan so'ng chiqadi) */}
+                  <div className="pt-3 border-t border-[#51504A]">
+                    {selectedRegions.length === 0 ? (
+                      <div className="p-4 rounded-xl bg-[#151719] border border-dashed border-[#51504A] text-center space-y-2">
+                        <Building2 className="w-6 h-6 text-[#FFB800] mx-auto opacity-80" />
+                        <div className="text-xs font-bold text-[#F5F5F2] uppercase tracking-wider font-mono">
+                          Tuman va shaharlar
+                        </div>
+                        <p className="text-xs text-[#FFB800] font-semibold font-mono">
+                          TUMANLAR RO'YXATI VILOYAT BELGILAGANDAN SO'NG CHIQADI.
+                        </p>
+                        <p className="text-[11px] text-[#B8B8B3]">
+                          Yuqoridagi viloyatlardan birini tanlang, so‘ng tumanlarni tanlashingiz mumkin.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-[#FFB800] uppercase tracking-wider flex items-center gap-1.5 font-mono">
+                            <Building2 className="w-3.5 h-3.5 text-[#FFB800]" />
+                            <span>Tuman va shaharlar</span>
+                            {selectedDistricts.length > 0 && (
+                              <span className="text-[11px] font-bold font-mono px-2 py-0.2 rounded bg-[#FFB800] text-[#151719]">
+                                {selectedDistricts.length}
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
-                      {selectedDistricts.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDistricts([])}
-                          className="text-[11px] text-red-400 hover:text-red-300 cursor-pointer"
-                        >
-                          Tumanlarni tozalash
-                        </button>
-                      )}
-                    </div>
+                          {selectedDistricts.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => setSelectedDistricts([])}
+                              className="text-[11px] text-red-400 hover:text-red-300 cursor-pointer"
+                            >
+                              Tumanlarni tozalash
+                            </button>
+                          )}
+                        </div>
 
-                    {/* Tuman qidiruvi */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B8B8B3]" />
-                      <input
-                        type="text"
-                        placeholder="Tuman yoki shahar nomini qidirish..."
-                        value={districtSearch}
-                        onChange={(e) => setDistrictSearch(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2.5 bg-[#151719] border border-[#51504A] rounded-lg text-xs text-[#F5F5F2] placeholder-[#B8B8B3]/60 focus:outline-none focus:border-[#FFB800]"
-                      />
-                    </div>
+                        {/* Tuman qidiruvi */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#B8B8B3]" />
+                          <input
+                            type="text"
+                            placeholder="Tuman yoki shahar nomini qidirish..."
+                            value={districtSearch}
+                            onChange={(e) => setDistrictSearch(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2.5 bg-[#151719] border border-[#51504A] rounded-lg text-xs text-[#F5F5F2] placeholder-[#B8B8B3]/60 focus:outline-none focus:border-[#FFB800]"
+                          />
+                        </div>
 
-                    {/* Tumanlar grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
-                      {filteredDistrictsList.map((dist) => {
-                        const isSelected = selectedDistricts.includes(dist);
-                        return (
-                          <button
-                            key={dist}
-                            type="button"
-                            onClick={() => toggleDistrict(dist)}
-                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer border ${
-                              isSelected
-                                ? 'bg-[#FFB800] text-[#151719] border-[#FFC928] shadow-sm font-bold'
-                                : 'bg-[#222528] text-[#B8B8B3] hover:bg-[#292C2F] hover:text-[#F5F5F2] border-[#51504A]'
-                            }`}
-                          >
-                            <span className="truncate">{dist}</span>
-                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] shrink-0 ml-1" />}
-                          </button>
-                        );
-                      })}
-                    </div>
+                        {/* Tumanlar grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto pr-1">
+                          {filteredDistrictsList.map((dist) => {
+                            const isSelected = selectedDistricts.includes(dist);
+                            return (
+                              <button
+                                key={dist}
+                                type="button"
+                                onClick={() => toggleDistrict(dist)}
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer border ${
+                                  isSelected
+                                    ? 'bg-[#FFB800] text-[#151719] border-[#FFC928] shadow-sm font-bold'
+                                    : 'bg-[#222528] text-[#B8B8B3] hover:bg-[#292C2F] hover:text-[#F5F5F2] border-[#51504A]'
+                                }`}
+                              >
+                                <span className="truncate">{dist}</span>
+                                {isSelected && <Check className="w-3.5 h-3.5 stroke-[3] shrink-0 ml-1" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1139,78 +1115,7 @@ export const Marketplace: React.FC<MarketplaceProps> = ({ products, onAddToCart,
                 </div>
               )}
 
-              {/* TAB 4: NARX ORALIG'I */}
-              {filterTab === 'price' && (
-                <div className="space-y-4 animate-fadeIn">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#FFB800] uppercase tracking-wider flex items-center gap-1.5 font-mono">
-                      <Coins className="w-3.5 h-3.5 text-[#FFB800]" />
-                      Narx oralig‘ini belgilash (so'm):
-                    </span>
-                    {hasPriceFilter && (
-                      <button
-                        type="button"
-                        onClick={() => { setMinPrice(''); setMaxPrice(''); }}
-                        className="text-[11px] text-red-400 hover:text-red-300 cursor-pointer"
-                      >
-                        Narxni tozalash
-                      </button>
-                    )}
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-xs text-[#B8B8B3] font-semibold block">Minimal narx (so'm):</label>
-                      <input
-                        type="number"
-                        placeholder={autoMinPrice > 0 ? formatPrice(autoMinPrice) : "0"}
-                        value={minPrice}
-                        onChange={(e) => setMinPrice(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full bg-[#151719] border border-[#51504A] rounded-lg px-3.5 py-2.5 text-xs text-[#F5F5F2] placeholder-[#B8B8B3]/60 focus:outline-none focus:border-[#FFB800] font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-[#B8B8B3] font-semibold block">Maksimal narx (so'm):</label>
-                      <input
-                        type="number"
-                        placeholder={autoMaxPrice > 0 ? formatPrice(autoMaxPrice) : "Cheksiz"}
-                        value={maxPrice}
-                        onChange={(e) => setMaxPrice(e.target.value ? Number(e.target.value) : '')}
-                        className="w-full bg-[#151719] border border-[#51504A] rounded-lg px-3.5 py-2.5 text-xs text-[#F5F5F2] placeholder-[#B8B8B3]/60 focus:outline-none focus:border-[#FFB800] font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Tezkor narx oralig'i tugmalari */}
-                  <div className="space-y-1.5">
-                    <span className="text-[11px] text-[#B8B8B3] font-semibold">Tezkor narx tanlash:</span>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                      {[
-                        { label: "< 100 ming", min: '', max: 100000 },
-                        { label: "100 ming - 1 mln", min: 100000, max: 1000000 },
-                        { label: "1 mln - 10 mln", min: 1000000, max: 10000000 },
-                        { label: "10 mln +", min: 10000000, max: '' },
-                      ].map((preset, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          onClick={() => {
-                            setMinPrice(preset.min as any);
-                            setMaxPrice(preset.max as any);
-                          }}
-                          className={`py-2 px-2 rounded-lg text-xs font-bold transition-colors cursor-pointer border text-center ${
-                            minPrice === preset.min && maxPrice === preset.max
-                              ? 'bg-[#FFB800] text-[#151719] border-[#FFC928] font-bold'
-                              : 'bg-[#222528] text-[#B8B8B3] border-[#51504A] hover:border-[#777A7C] hover:text-[#F5F5F2]'
-                          }`}
-                        >
-                          {preset.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Sticky Bottom Actions */}

@@ -133,16 +133,16 @@ export const SupplierCabinet: React.FC<SupplierCabinetProps> = ({
       if (saved) {
         const list: SupplierPartner[] = JSON.parse(saved);
         const found = list.find((s) => 
-          s.id === currentUser.id || 
-          s.login.toLowerCase() === currentUser.email.toLowerCase() ||
-          s.companyName.toLowerCase() === (currentUser.companyName || '').toLowerCase()
+          s?.id === currentUser.id || 
+          (s?.login && currentUser?.email && s.login.toLowerCase() === currentUser.email.toLowerCase()) ||
+          ((s?.companyName || '').toLowerCase() === (currentUser?.companyName || '').toLowerCase())
         );
         if (found) return found;
       }
     } catch {}
 
     const initialMatch = INITIAL_SUPPLIERS.find((s) => 
-      s.companyName.toLowerCase() === (currentUser.companyName || '').toLowerCase()
+      (s?.companyName || '').toLowerCase() === (currentUser?.companyName || '').toLowerCase()
     );
     if (initialMatch) return initialMatch;
 

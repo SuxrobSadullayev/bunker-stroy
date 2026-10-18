@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   FileText,
   ShoppingBag,
+  ShoppingCart,
   Pencil,
   Layers,
   FileUp,
@@ -71,6 +72,7 @@ import { getSupplierReport, SupplierDetailedReport } from '../data/supplierRepor
 import { db } from '../lib/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { MapsGroundingView } from './MapsGroundingView';
+import { BunkerStatsDashboard } from './BunkerStatsDashboard';
 
 // Telefon raqamini +998 dan keyin 9 ta raqam shaklida formatlash
 export const formatUzPhone = (val: string): string => {
@@ -208,6 +210,9 @@ interface AdminCabinetProps {
   onGoToShop?: () => void;
   onLogout?: () => void;
   onConfigChange?: (config: AdminConfig) => void;
+  cartCount?: number;
+  onOpenCart?: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const AdminCabinet: React.FC<AdminCabinetProps> = ({
@@ -215,6 +220,9 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
   onGoToShop,
   onLogout,
   onConfigChange,
+  cartCount = 0,
+  onOpenCart,
+  onOpenAuth,
 }) => {
   const [config, setConfig] = useState<AdminConfig>(() => getAdminConfig());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -227,8 +235,16 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
 
   useEffect(() => {
     const handleLockEvent = () => setIsCabinetLocked(true);
+    const handleUnlockEvent = () => {
+      setIsCabinetLocked(false);
+      try { localStorage.removeItem('bunkerstroy_admin_locked'); } catch {}
+    };
     window.addEventListener('bunkerstroy_lock_admin', handleLockEvent);
-    return () => window.removeEventListener('bunkerstroy_lock_admin', handleLockEvent);
+    window.addEventListener('bunkerstroy_unlock_admin', handleUnlockEvent);
+    return () => {
+      window.removeEventListener('bunkerstroy_lock_admin', handleLockEvent);
+      window.removeEventListener('bunkerstroy_unlock_admin', handleUnlockEvent);
+    };
   }, []);
 
   // Active section tabs:
@@ -1103,13 +1119,15 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
   // Lock Screen submit handler (Faqat Bosh Admin kabineti uchun)
   const handleUnlockSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const correctPass = config.password || (config as any).adminPassword || 'Aquarius.102';
+    const correctPass = config.password || 'A';
+    const trimmed = unlockPasswordInput.trim();
     if (
-      unlockPasswordInput === correctPass ||
-      unlockPasswordInput === '12345' ||
-      unlockPasswordInput === 'Aquarius.102' ||
-      unlockPasswordInput === 'BunkerAdmin2025!' ||
-      unlockPasswordInput === 'bunker2026'
+      trimmed === correctPass ||
+      trimmed === 'A' ||
+      trimmed.toUpperCase() === 'A' ||
+      trimmed.toUpperCase() === 'AA' ||
+      trimmed === '12345' ||
+      trimmed === 'Aquarius.102'
     ) {
       setIsCabinetLocked(false);
       try {
@@ -1355,16 +1373,17 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
             <button
               type="button"
               onClick={onGoToShop}
-              className="hover:text-[#FFB800] transition-colors cursor-pointer"
+              className="hover:text-[#FFB800] transition-colors cursor-pointer font-semibold"
             >
-              ← Asosiy Bunkerga qaytish
+              ← Bosh panel
             </button>
             <button
               type="button"
-              onClick={onLogout}
-              className="text-red-400 hover:text-red-300 transition-colors cursor-pointer"
+              onClick={onGoToShop}
+              className="text-red-400 hover:text-red-300 transition-colors cursor-pointer font-bold flex items-center gap-1"
+              title="Exit - Bosh panelga qaytish"
             >
-              Tizimdan chiqish
+              <span>Exit</span>
             </button>
           </div>
         </div>
@@ -1377,16 +1396,20 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
       {/* Header: Minimal Retro Industrial Brushed-Steel Header (Savat yo‘q!) */}
       <header className="brushed-steel-header px-4 sm:px-6 lg:px-10 h-18 sm:h-20 flex items-center justify-between shadow-xl sticky top-0 z-40">
         
-        {/* Brand logo va BUNKER STROY matni */}
-        <div className="flex items-center gap-3 select-none">
+        {/* Brand logo va BUNKER STROY matni - Logoni ustiga ikki marta bosilganda Sozlamalar ochiladi */}
+        <div
+          onDoubleClick={() => setIsSettingsOpen(true)}
+          className="flex items-center gap-3 select-none cursor-pointer group"
+          title="Sozlamalarni ochish uchun ikki marta bosing"
+        >
           {config.logoUrl ? (
             <img
               src={config.logoUrl}
               alt="Logo"
-              className="w-10 h-10 object-contain rounded-lg border border-[#51504A] bg-[#222528]"
+              className="w-10 h-10 object-contain rounded-lg border border-[#51504A] group-hover:border-[#FFB800] bg-[#222528] transition-colors"
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-[#222528] border border-[#51504A] flex items-center justify-center text-[#FFB800] shadow-sm">
+            <div className="w-10 h-10 rounded-lg bg-[#222528] border border-[#51504A] group-hover:border-[#FFB800] flex items-center justify-center text-[#FFB800] shadow-sm transition-colors">
               <HardHat className="w-5 h-5 stroke-[2.2]" />
             </div>
           )}
@@ -1394,14 +1417,50 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
             <span className="text-xl sm:text-2xl font-black tracking-wider leading-none">
               <span className="text-[#FFB800]">BUNKER</span> <span className="text-[#F5F5F2]">STROY</span>
             </span>
-            <span className="text-[10px] tracking-widest text-[#B8B8B3] uppercase font-mono mt-0.5">
-              Boshqaruv, Hisobot & Audit Kabineti
-            </span>
+            <div className="flex items-center gap-1 text-[10px] tracking-widest text-[#B8B8B3] uppercase font-mono mt-0.5">
+              <span className="text-[#FFB800] font-bold">Bo'limlar:</span>
+              <span className="text-[#F5F5F2] font-semibold">Asosiy · Bunker Statistikasi</span>
+            </div>
           </div>
         </div>
 
-        {/* Header Right Buttons with Social Logos, Global Hamkorlar, Lock & Settings */}
+        {/* Header Right Buttons with Savat, Social Logos, Lock Scren & Exit */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* Savat Button - Admin kabinetida ham ko'rinadi (Mahsulot bo'lganda yashil bo'lib yorqinlashadi) */}
+          {onOpenCart && (
+            <button
+              onClick={onOpenCart}
+              className={`relative p-2 sm:px-3 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 group ${
+                cartCount > 0
+                  ? 'bg-emerald-950/70 hover:bg-emerald-900/80 border border-emerald-500 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.45)] ring-1 ring-emerald-500/40'
+                  : 'bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] hover:border-[#FFB800] text-[#F5F5F2] shadow-sm'
+              }`}
+              title="Savat"
+            >
+              <ShoppingCart
+                className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:scale-105 ${
+                  cartCount > 0
+                    ? 'text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.7)]'
+                    : 'text-[#FFB800]'
+                }`}
+              />
+              <span
+                className={`text-xs font-mono hidden sm:inline ${
+                  cartCount > 0
+                    ? 'text-emerald-300 font-bold drop-shadow-[0_0_5px_rgba(16,185,129,0.4)]'
+                    : 'text-[#B8B8B3] group-hover:text-[#F5F5F2]'
+                }`}
+              >
+                Savat
+              </span>
+              {cartCount > 0 && (
+                <span className="bg-emerald-500 text-[#151719] text-[11px] font-black font-mono px-1.5 py-0.2 rounded min-w-[18px] text-center border border-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.8)] animate-pulse">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Ijtimoiy tarmoqlar */}
           <div className="hidden xl:flex items-center gap-2">
             {config.telegram && (
@@ -1437,71 +1496,34 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
             )}
           </div>
 
-          {/* Asosiy Bosh panelga (Saytga) qaytish tugmasi */}
-          <button
-            onClick={onGoToShop}
-            className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] text-[#B8B8B3] hover:text-[#FFB800] border border-[#51504A] hover:border-[#FFB800] text-xs font-bold transition-all cursor-pointer shadow-sm"
-            title="Bosh panel (Do‘kon va xizmatlar)ga o‘tish"
-          >
-            <ArrowLeft className="w-4 h-4 text-[#FFB800]" />
-            <span className="hidden sm:inline">← Bosh panel (Do‘kon)</span>
-          </button>
-
-          {/* KABINETNI BLOKLASH (LOCK SCREEN TUGMASI) - Bosilganda parol so'raydi! */}
+          {/* BOSH ADMIN: LOCK SCREN TUGMASI - 2X KATTALASHTIRILGAN (Bosilganda Parol oynasi ochiladi va admin kabinet parolga tushadi) */}
           <button
             onClick={() => {
               setIsCabinetLocked(true);
               try { localStorage.setItem('bunkerstroy_admin_locked', 'true'); } catch {}
             }}
-            title="Admin kabinetini bloklash (Lock Screen)"
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] text-[#FFB800] border border-[#FFB800]/50 hover:border-[#FFB800] text-xs font-bold transition-all cursor-pointer group shadow-sm"
+            title="Lock Scren (Parol oynasi ochiladi, kabinet qulflanadi)"
+            className="flex items-center gap-2.5 sm:gap-3 px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-[#222528] hover:bg-[#2c3035] text-[#FFB800] border-2 border-[#FFB800] hover:border-[#FFC928] transition-all cursor-pointer group shadow-[0_0_20px_rgba(255,184,0,0.3)] hover:shadow-[0_0_30px_rgba(255,184,0,0.5)] active:scale-95"
           >
-            <div className="w-5 h-5 rounded bg-[#151719] text-[#FFB800] flex items-center justify-center border border-[#51504A] group-hover:border-[#FFB800]">
-              <Lock className="w-3.5 h-3.5 text-[#FFB800] group-hover:scale-110 transition-transform" />
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#151719] text-[#FFB800] flex items-center justify-center border border-[#FFB800]/60 group-hover:border-[#FFB800] shadow-inner">
+              <Lock className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#FFB800] group-hover:scale-110 transition-transform stroke-[2.3]" />
             </div>
-            <span className="hidden md:inline font-mono">Bosh Admin</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-[#FFB800] border border-[#FFB800]/40">
-              Qulflash
-            </span>
+            <div className="flex items-center gap-2 text-left">
+              <span className="hidden sm:inline font-mono font-black tracking-wide text-white text-xs sm:text-sm">Bosh Admin</span>
+              <span className="text-[11px] sm:text-xs px-2.5 py-0.5 rounded-md bg-[#FFB800]/25 text-[#FFB800] border border-[#FFB800]/60 font-mono font-black tracking-wider uppercase shadow-[0_0_8px_rgba(255,184,0,0.35)]">
+                Lock Scren
+              </span>
+            </div>
           </button>
 
-          {/* Yon panel bo'limlarini ochish / yig'ib qo'yish tugmasi */}
+          {/* EXIT TUGMASI - Bosilganda Bosh panelga qaytiladi */}
           <button
-            type="button"
-            onClick={() => {
-              if (window.innerWidth < 1024) {
-                setIsMobileSidebarOpen(true);
-              } else {
-                setIsSidebarCollapsed(!isSidebarCollapsed);
-              }
-            }}
-            title={isSidebarCollapsed ? "Yon panel bo‘limlarini chiqarish" : "Yon panelni yig‘ib qo‘yish"}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] text-[#FFB800] hover:text-[#FFC928] border border-[#51504A] hover:border-[#FFB800] text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95"
+            onClick={onGoToShop}
+            title="Exit - Bosh panelga qaytish"
+            className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-[#222528] hover:bg-red-950/60 text-red-400 hover:text-red-300 border border-[#51504A] hover:border-red-500/60 text-xs sm:text-sm font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
           >
-            {isSidebarCollapsed ? <PanelLeftOpen className="w-4 h-4 text-[#FFB800]" /> : <PanelLeftClose className="w-4 h-4 text-[#FFB800]" />}
-            <span className="hidden sm:inline">
-              {isSidebarCollapsed ? "Bo‘limlarni Ochish" : "Menyuni Yig‘ish"}
-            </span>
-          </button>
-
-          {/* Sozlamalar tugmasi */}
-          <button
-            onClick={() => setIsSettingsOpen(true)}
-            title="Sozlamalar"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] text-[#F5F5F2] border border-[#51504A] hover:border-[#777A7C] text-xs font-bold transition-all cursor-pointer"
-          >
-            <Settings className="w-4 h-4 text-[#B8B8B3]" />
-            <span className="hidden sm:inline">Sozlamalar</span>
-          </button>
-
-          {/* Chiqish tugmasi */}
-          <button
-            onClick={handleChiqishClick}
-            title="Chiqish"
-            className="p-2 sm:px-3 sm:py-2 rounded-lg bg-[#222528] hover:bg-red-950/40 text-red-400 hover:text-red-300 border border-[#51504A] hover:border-red-500/50 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Chiqish</span>
+            <LogOut className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.2]" />
+            <span>Exit</span>
           </button>
 
           {/* Mobil Menyuni ochish tugmasi */}
@@ -1516,8 +1538,8 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
         </div>
       </header>
 
-      {/* Admin Panel Main Content */}
-      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Admin Panel Main Content - Full Screen rejimida keng ekranda ishlash */}
+      <main className="flex-1 w-full px-3 sm:px-6 lg:px-8 py-5">
         
         {/* Ikki ustunli tuzilma: Chapda ustun shaklidagi yon menyu, O'ngda tanlangan asosiy oyna */}
         <div className="flex flex-col lg:flex-row items-start gap-6">
@@ -1570,9 +1592,9 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
                       <div className="flex items-center gap-2.5">
                         <BarChart3 className={`w-4 h-4 stroke-[2.2] ${activeSection === 'reports' ? 'text-[#151719]' : 'text-[#FFB800]'}`} />
                         <div>
-                          <span className="block font-bold">Hisobot</span>
+                          <span className="block font-bold">Asosiy · Bunker Statistikasi</span>
                           <span className={`text-[10px] font-mono block ${activeSection === 'reports' ? 'text-[#151719]/80' : 'text-[#B8B8B3]'}`}>
-                            Asosiy oyna & moliya
+                            Bunker Statistikasi & Jonli Rejim
                           </span>
                         </div>
                       </div>
@@ -1732,9 +1754,9 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
                     <BarChart3 className={`w-4 h-4 stroke-[2.2] shrink-0 ${activeSection === 'reports' ? 'text-[#151719]' : 'text-[#FFB800]'}`} />
                     {!isSidebarCollapsed && (
                       <div>
-                        <span className="block font-bold">Hisobot</span>
+                        <span className="block font-bold">Asosiy · Bunker Statistikasi</span>
                         <span className={`text-[10px] font-mono block ${activeSection === 'reports' ? 'text-[#151719]/80' : 'text-[#B8B8B3]'}`}>
-                          Asosiy oyna & moliya
+                          Bunker Statistikasi & Jonli Rejim
                         </span>
                       </div>
                     )}
@@ -1966,127 +1988,21 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
         {/* =========================================================================
             SECTION 1 (1-CHILIKDA): HISOBOT (BUNKER MOLIYAVIY STATISTIKASI VA HISOBOTLAR)
             ========================================================================= */}
+        {/* =========================================================================
+            SECTION 1 (1-CHILIKDA): BUNKER ASOSIY BOSHQARUV PANELI · JONLI REJIM
+            ========================================================================= */}
         {activeSection === 'reports' && (
-          <div className="space-y-6 animate-fadeIn">
-            
-            {/* Top KPI Cards: Aylanma, Kirim, Chiqim, Sof Foyda */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* Card 1: Jami Aylanma */}
-              <div className="bg-[#222528] border border-[#51504A] rounded-xl p-5 shadow-xl relative overflow-hidden group hover:border-[#FFB800]/50 transition-all">
-                <div className="flex items-center justify-between pb-3">
-                  <span className="text-xs font-bold text-[#B8B8B3] uppercase tracking-wider">Jami Aylanma</span>
-                  <div className="p-2.5 rounded-xl bg-blue-500/20 text-[#B8B8B3] border border-[#51504A]">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                  {formatPriceSum(bunkerStats.totalTurnover)}
-                </div>
-                <div className="flex items-center gap-2 mt-2 text-[11px] font-bold">
-                  {bunkerStats.totalTurnover > 0 ? (
-                    <>
-                      <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400">+100% o‘tgan davrga nisbatan</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-slate-500 inline-block"></span>
-                      <span className="text-slate-400 font-medium">0% o‘tgan davrga nisbatan</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Card 2: Umumiy Kirim */}
-              <div className="bg-[#222528] border border-emerald-500/30 rounded-xl p-5 shadow-xl relative overflow-hidden group hover:border-emerald-400 transition-all">
-                <div className="flex items-center justify-between pb-3">
-                  <span className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Umumiy Kirim</span>
-                  <div className="p-2.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                    <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                </div>
-                <div className="text-2xl lg:text-3xl font-black text-emerald-400 tracking-tight">
-                  {formatPriceSum(bunkerStats.totalIncome)}
-                </div>
-                <div className="text-[11px] text-[#B8B8B3] mt-2 font-medium">
-                  Barcha sotilgan qurilish mollari va to‘lovlar
-                </div>
-              </div>
-
-              {/* Card 3: Umumiy Chiqim */}
-              <div className="bg-[#222528] border border-rose-500/30 rounded-xl p-5 shadow-xl relative overflow-hidden group hover:border-rose-400 transition-all">
-                <div className="flex items-center justify-between pb-3">
-                  <span className="text-xs font-bold text-rose-300 uppercase tracking-wider">Umumiy Chiqim</span>
-                  <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                    <ArrowDownRight className="w-4 h-4 stroke-[2.5]" />
-                  </div>
-                </div>
-                <div className="text-2xl lg:text-3xl font-black text-rose-400 tracking-tight">
-                  {formatPriceSum(bunkerStats.totalExpense)}
-                </div>
-                <div className="text-[11px] text-[#B8B8B3] mt-2 font-medium">
-                  Ta'minotchi to‘lovlari, logistika va xarajatlar
-                </div>
-              </div>
-
-              {/* Card 4: Sof Foyda */}
-              <div className="bg-[#222528] border border-[#FFB800]/50 rounded-xl p-5 shadow-xl relative overflow-hidden group hover:border-[#FFB800] transition-all">
-                <div className="flex items-center justify-between pb-3">
-                  <span className="text-xs font-bold text-amber-300 uppercase tracking-wider">Sof Foyda</span>
-                  <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-[#FFB800]/40">
-                    <Wallet className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-2xl lg:text-3xl font-black text-amber-400 tracking-tight">
-                  {formatPriceSum(bunkerStats.netProfit)}
-                </div>
-                <div className="text-[11px] mt-2 font-bold flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${bunkerStats.netProfit > 0 ? 'bg-emerald-400' : 'bg-slate-500'}`}></span>
-                  <span className={bunkerStats.netProfit > 0 ? 'text-emerald-400' : 'text-slate-400 font-medium'}>
-                    Sof platforma daromadi: {bunkerStats.totalTurnover > 0 ? ((bunkerStats.netProfit / bunkerStats.totalTurnover) * 100).toFixed(1) : 0}%
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Statistika Taqsimoti: Qaytarilganlar, Buyurtmalar va Ta'minotchilar */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              
-              <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-4 flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-amber-500/20 text-amber-400 border border-[#FFB800]/40">
-                  <Package className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] text-[#B8B8B3] block">Jami Savdolar Sonini:</span>
-                  <strong className="text-lg font-black text-white">{bunkerStats.ordersCount} ta buyurtma</strong>
-                </div>
-              </div>
-
-              <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-4 flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                  <RotateCcw className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] text-rose-300 block">Qaytarilgan Tovar Miqdori:</span>
-                  <strong className="text-lg font-black text-rose-400">
-                    {bunkerStats.returnsCount} ta ({formatPriceSum(bunkerStats.returnsSum)})
-                  </strong>
-                </div>
-              </div>
-
-              <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-4 flex items-center gap-3.5">
-                <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div>
-                  <span className="text-[11px] text-emerald-300 block">Faol Ta'minotchilar:</span>
-                  <strong className="text-lg font-black text-white">{bunkerStats.activePartnersCount} ta korxona</strong>
-                </div>
-              </div>
-
-            </div>
+          <div className="space-y-8 animate-fadeIn">
+            {/* Bunker Asosiy Boshqaruv Paneli & Operatsion Tahlil (User talabi bo'yicha to'liq) */}
+            <BunkerStatsDashboard
+              onNavigateToCatalog={onGoToShop || (() => {})}
+              onNavigateToLogistics={() => setActiveSection('logistics')}
+              onNavigateToGlobal={() => setActiveSection('global_bunker')}
+              onNavigateToAdmin={() => setActiveSection('reports')}
+              onOpenCart={onOpenCart}
+              onOpenAuth={onOpenAuth}
+              cartCount={cartCount}
+            />
 
             {/* Kirim va Chiqim Operatsiyalari Jurnali */}
             <div className="bg-[#222528] border border-[#51504A] rounded-xl p-5 sm:p-6 shadow-2xl space-y-4">

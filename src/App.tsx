@@ -65,14 +65,11 @@ export default function App() {
       const saved = localStorage.getItem('bunkerstroy_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Clean out all mock products, keep only real user-created items
-        return Array.isArray(parsed)
-          ? parsed.filter((p: Product) => p.id && p.id.startsWith('prod-') && p.id.length > 12)
-          : [];
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
-      return [];
+      return INITIAL_PRODUCTS;
     } catch {
-      return [];
+      return INITIAL_PRODUCTS;
     }
   });
   const [vehicles, setVehicles] = useState<LogisticsVehicle[]>(INITIAL_VEHICLES);
@@ -295,6 +292,9 @@ export default function App() {
           onGoToShop={() => setActiveTab('marketplace')}
           onLogout={handleLogout}
           onConfigChange={(newCfg) => setAdminConfig(newCfg)}
+          cartCount={totalCartCount}
+          onOpenCart={() => setIsCartOpen(true)}
+          onOpenAuth={() => setIsAuthOpen(true)}
         />
       ) : activeTab === 'supplier' && user ? (
         <SupplierCabinet
