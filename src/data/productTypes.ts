@@ -4,26 +4,17 @@ export interface ProductTypeItem {
   isCustom?: boolean;
 }
 
-export const INITIAL_PRODUCT_TYPES: ProductTypeItem[] = [
-  { id: 'ichki', label: "Ichki ta'mir" },
-  { id: 'tashqi', label: "Tashqi ta'mir" },
-  { id: 'sement', label: "Sement" },
-  { id: 'kardon', label: "Kardon" },
-  { id: 'gisht', label: "G‘isht" },
-  { id: 'ishchi_kuchi', label: "Ishchi kuchi" },
-  { id: 'asbob_uskunalar', label: "Asbob-uskunalar" },
-  { id: 'texnika_ijarasi', label: "Texnik Asbob-uskunalar ijarasi" },
-];
+// Boshlang'ich ro'yxat bo'sh - Admin kabineti ta'minotchi qo'shayotganda qo'lda kiritadi
+export const INITIAL_PRODUCT_TYPES: ProductTypeItem[] = [];
 
 const STORAGE_KEY = 'bunkerstroy_product_types';
 
 function sanitizeTypes(types: ProductTypeItem[]): ProductTypeItem[] {
-  // Map of unique lower-cased labels
   const seen = new Set<string>();
   const result: ProductTypeItem[] = [];
 
   for (const item of types) {
-    const trimmed = item.label.trim();
+    const trimmed = item.label ? item.label.trim() : '';
     if (!trimmed || trimmed.length < 2) continue;
     const lower = trimmed.toLowerCase();
     if (seen.has(lower)) continue;
@@ -34,28 +25,20 @@ function sanitizeTypes(types: ProductTypeItem[]): ProductTypeItem[] {
     });
   }
 
-  // Ensure standard default types are included if missing
-  for (const def of INITIAL_PRODUCT_TYPES) {
-    if (!seen.has(def.label.toLowerCase())) {
-      seen.add(def.label.toLowerCase());
-      result.push(def);
-    }
-  }
-
   return result;
 }
 
 export function getProductTypes(): ProductTypeItem[] {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return INITIAL_PRODUCT_TYPES;
+    if (!saved) return [];
     const parsed = JSON.parse(saved);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return sanitizeTypes(parsed);
     }
-    return INITIAL_PRODUCT_TYPES;
+    return [];
   } catch {
-    return INITIAL_PRODUCT_TYPES;
+    return [];
   }
 }
 
@@ -82,7 +65,6 @@ export function addProductType(newLabel: string): ProductTypeItem[] {
     return current;
   }
 
-  // Remove partial prefix fragments if user typed step-by-step
   const filtered = current.filter((t) => {
     if (t.isCustom && t.label.length < trimmed.length && trimmed.toLowerCase().startsWith(t.label.toLowerCase())) {
       return false;
@@ -90,7 +72,6 @@ export function addProductType(newLabel: string): ProductTypeItem[] {
     return true;
   });
 
-  // Generate an ID for the new type
   const slug = trimmed
     .toLowerCase()
     .replace(/[^a-z0-9а-яёўқғҳ]+/gi, '_')
@@ -105,4 +86,108 @@ export function addProductType(newLabel: string): ProductTypeItem[] {
   const updated = [...filtered, newItem];
   saveProductTypes(updated);
   return updated;
+}
+
+// ============================================================================
+// ISHLAB CHIQARILGAN DAVLATLAR RO'YXATI (Kabinet nomi emas, faqat davlatlar)
+// ============================================================================
+const ORIGIN_COUNTRIES_STORAGE_KEY = 'bunkerstroy_origin_countries';
+
+export const DEFAULT_ORIGIN_COUNTRIES: string[] = [
+  'O‘zbekiston',
+  'Xitoy',
+  'Rossiya',
+  'Turkiya',
+  'Qozog‘iston',
+  'Germaniya',
+  'Janubiy Koreya',
+  'Eron',
+  'Italiya',
+  'Hindiston',
+  'Yaponiya',
+  'Polsha',
+];
+
+export function isCabinetCompanyName(val?: string): boolean {
+  if (!val) return true;
+  const lower = val.trim().toLowerCase();
+  if (!lower || lower.length < 2) return true;
+  if (
+    lower.includes("mas'uliyati cheklangan") ||
+    lower.includes('mas’uliyati cheklangan') ||
+    lower.includes('jamiyati') ||
+    lower.includes('mchj') ||
+    lower.includes('national ai') ||
+    lower.includes('dingtai') ||
+    lower.includes('"') ||
+    lower.includes('«') ||
+    lower.includes('»') ||
+    lower.includes('xk') ||
+    lower.includes('ooo')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function getManufacturers(): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  const pushUnique = (raw?: string) => {
+    const trimmed = (raw || '').trim();
+    if (!trimmed || trimmed.length < 2) return;
+    if (isCabinetCompanyName(trimmed)) return;
+    const lower = trimmed.toLowerCase();
+    if (seen.has(lower)) return;
+    seen.add(lower);
+    result.push(trimmed);
+  };
+
+  // Standart davlatlar
+  DEFAULT_ORIGIN_COUNTRIES.forEach((c) => pushUnique(c));
+
+  try {
+    const saved = localStorage.getItem(ORIGIN_COUNTRIES_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        parsed.forEach((m) => pushUnique(typeof m === 'string' ? m : m?.name || m?.label));
+      }
+    }
+  } catch {}
+
+  try {
+    const savedProds = localStorage.getItem('bunkerstroy_products');
+    if (savedProds) {
+      const parsedProds = JSON.parse(savedProds);
+      if (Array.isArray(parsedProds)) {
+        parsedProds.forEach((p: any) => {
+          if (p?.manufacturerName && !isCabinetCompanyName(p.manufacturerName)) {
+            pushUnique(p.manufacturerName);
+          }
+        });
+      }
+    }
+  } catch {}
+
+  return result;
+}
+
+export function addManufacturer(newCountry: string): string[] {
+  const trimmed = (newCountry || '').trim();
+  if (!trimmed || trimmed.length < 2 || isCabinetCompanyName(trimmed)) {
+    return getManufacturers();
+  }
+
+  const current = getManufacturers();
+  const exists = current.some((m) => m.toLowerCase() === trimmed.toLowerCase());
+  const next = exists ? current : [trimmed, ...current];
+
+  try {
+    localStorage.setItem(ORIGIN_COUNTRIES_STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new CustomEvent('bunkerstroy_manufacturers_updated', { detail: next }));
+  } catch {}
+
+  return next;
 }

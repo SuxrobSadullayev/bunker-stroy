@@ -19,10 +19,13 @@ import {
   DollarSign,
   Smartphone,
   Wallet,
-  Coins
+  Coins,
+  User,
+  Navigation,
+  Globe
 } from 'lucide-react';
 import { CartItem, UserProfile, Order } from '../types';
-import { REGIONS_AND_DISTRICTS } from '../data/regionsData';
+import { REGIONS_AND_DISTRICTS, getMfyListForDistrict, REGION_COORDINATES } from '../data/regionsData';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { recordCabinetLog } from '../lib/cabinetLogs';
@@ -32,6 +35,7 @@ interface CheckoutModalProps {
   onClose: () => void;
   items: CartItem[];
   user: UserProfile | null;
+  onUserUpdate?: (updatedUser: UserProfile) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
@@ -44,6 +48,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   onClose,
   items,
   user,
+  onUserUpdate,
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
@@ -55,32 +60,35 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Step 2: Manzil kiritiladi
-  const [region, setRegion] = useState<string>(user?.region || 'Toshkent shahri');
-  const [district, setDistrict] = useState<string>(user?.district || 'Chilonzor tumani');
+  // Step 2: Manzilni tasdiqlash
+  const [region, setRegion] = useState<string>(user?.region || '');
+  const [district, setDistrict] = useState<string>(user?.district || '');
   const [mfy, setMfy] = useState<string>('');
-  const [streetAddress, setStreetAddress] = useState<string>('');
-  const [landmark, setLandmark] = useState<string>('');
-  const [buildingType, setBuildingType] = useState<string>('Xususiy uy / Kottej');
-  const [mapPinned, setMapPinned] = useState<boolean>(false);
-  const [showMapPicker, setShowMapPicker] = useState<boolean>(false);
-  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>({ lat: 41.311081, lng: 69.240562 });
-
-  // Step 3: Telefon raqam
-  const [recipientName, setRecipientName] = useState<string>(
-    user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.displayName : ''
-  );
-  const [phoneRaw, setPhoneRaw] = useState<string>(() => {
-    if (user?.phone) {
-      return user.phone.replace(/[^0-9]/g, '').slice(-9);
+  const [mapPinned, setMapPinned] = useState<boolean>(true);
+  const [showMapPicker, setShowMapPicker] = useState<boolean>(true);
+  const [showManualAddressFields, setShowManualAddressFields] = useState<boolean>(false);
+  const [detectedMapAddress, setDetectedMapAddress] = useState<string>('Toshkent shahri');
+  const [mapType, setMapType] = useState<'m' | 'k'>('m');
+  const [gpsLoading, setGpsLoading] = useState<boolean>(false);
+  const [mapCoords, setMapCoords] = useState<{ lat: number; lng: number }>(() => {
+    if (user?.region && REGION_COORDINATES[user.region]) {
+      return REGION_COORDINATES[user.region];
     }
-    return '';
+    return { lat: 41.311081, lng: 69.240562 };
   });
+
+  // Step 3: Qabul qiluvchi (Kabinetdagi Ism, Familiya va Telefon raqam + Qo'shimcha raqam)
+  const [recipientFirstName, setRecipientFirstName] = useState<string>(
+    user?.firstName || user?.displayName?.split(' ')[0] || ''
+  );
+  const [recipientLastName, setRecipientLastName] = useState<string>(
+    user?.lastName || user?.displayName?.split(' ').slice(1).join(' ') || ''
+  );
+  const [cabinetPhone, setCabinetPhone] = useState<string>(
+    user?.phone || '+998 '
+  );
+  const [showAdditionalPhone, setShowAdditionalPhone] = useState<boolean>(false);
   const [secondaryPhone, setSecondaryPhone] = useState<string>('');
-  const [smsSent, setSmsSent] = useState(false);
-  const [smsCodeInput, setSmsCodeInput] = useState('');
-  const [generatedSmsCode, setGeneratedSmsCode] = useState('7749');
-  const [phoneVerified, setPhoneVerified] = useState(false);
 
   // Step 4: To'lov
   const [paymentMethod, setPaymentMethod] = useState<'payme' | 'click' | 'uzum' | 'card' | 'cash'>('payme');
@@ -88,29 +96,86 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [cardExpire, setCardExpire] = useState('08/28');
   const [completedOrder, setCompletedOrder] = useState<Order | null>(null);
 
-  // Update district list when region changes
-  const districts = REGIONS_AND_DISTRICTS[region] || [];
+  // Update district and MFY lists when region/district changes
+  const districts = region ? REGIONS_AND_DISTRICTS[region] || [] : [];
+  const mfyList = district ? getMfyListForDistrict(district) : [];
+
+  const getNearestRegionName = (lat: number, lng: number): string => {
+    let closestRegion = 'Toshkent shahri';
+    let minDistance = Infinity;
+    Object.entries(REGION_COORDINATES).forEach(([regName, coords]) => {
+      const dist = Math.hypot(coords.lat - lat, coords.lng - lng);
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestRegion = regName;
+      }
+    });
+    return closestRegion;
+  };
+
+  const resolveAddressFromCoords = async (lat: number, lng: number) => {
+    const nearestReg = getNearestRegionName(lat, lng);
+    setDetectedMapAddress(nearestReg);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&accept-language=uz`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.address) {
+          const addr = data.address;
+          const parts = [
+            addr.state || addr.city || nearestReg,
+            addr.county || addr.city_district || addr.suburb || addr.town || addr.village,
+            addr.neighbourhood || addr.quarter || addr.road,
+            addr.house_number ? `${addr.house_number}-uy` : '',
+          ].filter(Boolean);
+          const uniqueParts = Array.from(new Set(parts));
+          if (uniqueParts.length > 0) {
+            setDetectedMapAddress(uniqueParts.join(', '));
+            return;
+          }
+        }
+        if (data?.display_name) {
+          const shortDisplay = data.display_name
+            .split(',')
+            .slice(0, 3)
+            .map((s: string) => s.trim())
+            .join(', ');
+          if (shortDisplay) {
+            setDetectedMapAddress(shortDisplay);
+          }
+        }
+      }
+    } catch {
+      // Fallback already set to nearestReg
+    }
+  };
 
   useEffect(() => {
-    if (districts.length > 0 && !districts.includes(district)) {
-      setDistrict(districts[0]);
-    }
-  }, [region, districts, district]);
+    resolveAddressFromCoords(mapCoords.lat, mapCoords.lng);
+  }, [mapCoords.lat, mapCoords.lng]);
 
   // Sync user info if user changes
   useEffect(() => {
     if (user) {
       if (user.region && REGIONS_AND_DISTRICTS[user.region]) {
         setRegion(user.region);
+        if (REGION_COORDINATES[user.region]) {
+          setMapCoords(REGION_COORDINATES[user.region]);
+        }
       }
       if (user.district) {
         setDistrict(user.district);
       }
-      if (!recipientName) {
-        setRecipientName(`${user.firstName || ''} ${user.lastName || ''}`.trim() || user.displayName);
+      if (user.firstName || user.displayName) {
+        setRecipientFirstName(user.firstName || user.displayName.split(' ')[0] || '');
       }
-      if (!phoneRaw && user.phone) {
-        setPhoneRaw(user.phone.replace(/[^0-9]/g, '').slice(-9));
+      if (user.lastName) {
+        setRecipientLastName(user.lastName);
+      }
+      if (user.phone) {
+        setCabinetPhone(user.phone);
       }
     }
   }, [user]);
@@ -118,44 +183,45 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   if (!isOpen) return null;
 
   const grandTotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
-  const totalUnits = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const formatPrice = (p: number) => new Intl.NumberFormat('uz-UZ').format(p) + " so'm";
 
-  const handlePhoneInputChange = (val: string) => {
-    const digits = val.replace(/\D/g, '').slice(0, 9);
-    setPhoneRaw(digits);
-    if (phoneVerified) setPhoneVerified(false);
+  const formatUzPhoneInput = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    const local = digits.startsWith('998') ? digits.slice(3, 12) : digits.slice(0, 9);
+    if (local.length === 0) return '+998 ';
+    if (local.length <= 2) return `+998 ${local}`;
+    if (local.length <= 5) return `+998 ${local.slice(0, 2)} ${local.slice(2)}`;
+    if (local.length <= 7) return `+998 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5)}`;
+    return `+998 ${local.slice(0, 2)} ${local.slice(2, 5)} ${local.slice(5, 7)} ${local.slice(7, 9)}`;
   };
 
-  const formattedPhoneDisplay = () => {
-    const d = phoneRaw;
-    if (d.length === 0) return '';
-    if (d.length <= 2) return `(${d}`;
-    if (d.length <= 5) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
-    if (d.length <= 7) return `(${d.slice(0, 2)}) ${d.slice(2, 5)}-${d.slice(5)}`;
-    return `(${d.slice(0, 2)}) ${d.slice(2, 5)}-${d.slice(5, 7)}-${d.slice(7, 9)}`;
-  };
-
-  const handleSendSms = () => {
-    if (phoneRaw.length !== 9) {
-      setError("Telefon raqami 9 ta raqamdan iborat bo'lishi kerak!");
+  const handleDetectGpsLocation = () => {
+    setError(null);
+    setMapPinned(true);
+    setShowMapPicker(true);
+    setShowManualAddressFields(false);
+    if (!navigator.geolocation) {
       return;
     }
-    setError(null);
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    setGeneratedSmsCode(code);
-    setSmsSent(true);
-    setSmsCodeInput('');
-  };
-
-  const handleVerifySms = () => {
-    if (smsCodeInput.trim() === generatedSmsCode || smsCodeInput.trim() === '7749') {
-      setPhoneVerified(true);
-      setError(null);
-    } else {
-      setError("Tasdiqlash kodi noto'g'ri kiritildi! Qaytadan tekshiring.");
-    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setMapCoords({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        setMapPinned(true);
+        setError(null);
+        setGpsLoading(false);
+      },
+      () => {
+        setMapPinned(true);
+        setError(null);
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
   };
 
   // Step 1 -> Step 2 validation
@@ -173,17 +239,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   // Step 2 -> Step 3 validation
+  // Agar xaritadan belgilansa yoki real joylashuv uzatilsa, qo'lda viloyat/tuman/MFY yozish va belgilash shart emas — shu joylashuv qabul qilinadi!
   const handleProceedToPhone = () => {
+    if (mapPinned || showMapPicker) {
+      setMapPinned(true);
+      setError(null);
+      setStep(3);
+      return;
+    }
     if (!region) {
-      setError('Iltimos, viloyatni tanlang!');
+      setError('Iltimos, viloyatni tanlang yoki xaritadan joylashuvni belgilang!');
       return;
     }
     if (!district) {
       setError('Iltimos, tuman yoki shaharni tanlang!');
       return;
     }
-    if (!streetAddress.trim()) {
-      setError("Iltimos, yetkazib berish ko'chasi va uy/ob'ekt raqamini kiriting!");
+    if (!mfy) {
+      setError("Iltimos, MFY (Mahalla fuqarolar yig'ini) ni ro'yxatdan tanlang!");
       return;
     }
     setError(null);
@@ -191,17 +264,41 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   // Step 3 -> Step 4 validation
-  const handleProceedToPayment = () => {
-    if (!recipientName.trim()) {
-      setError('Iltimos, qabul qiluvchi shaxs ismini kiriting!');
+  const handleProceedToPayment = async () => {
+    if (!recipientFirstName.trim()) {
+      setError('Iltimos, ismingizni kiriting!');
       return;
     }
-    if (phoneRaw.length !== 9) {
-      setError("Iltimos, 9 xonali telefon raqamini to'liq kiriting!");
+    if (!recipientLastName.trim()) {
+      setError("Iltimos, familiyangizni kiriting! (Kabinetda familiya kiritilmagan bo'lsa, kiritish talab qilinadi)");
       return;
     }
-    // If user hasn't verified SMS yet, auto-verify for smooth individual user experience or verify
-    setPhoneVerified(true);
+    const cleanPhoneDigits = cabinetPhone.replace(/\D/g, '');
+    if (cleanPhoneDigits.length < 9) {
+      setError("Iltimos, telefon raqamini to'liq kiriting!");
+      return;
+    }
+
+    // Agar kabinetda familiya, viloyat yoki tuman kiritilmagan bo'lsa, kabinet ma'lumotlariga ham saqlab qo'yamiz
+    if (user) {
+      const resolvedReg = region || getNearestRegionName(mapCoords.lat, mapCoords.lng) || user.region;
+      const updatedUser: UserProfile = {
+        ...user,
+        firstName: recipientFirstName.trim(),
+        lastName: recipientLastName.trim(),
+        displayName: `${recipientFirstName.trim()} ${recipientLastName.trim()}`.trim(),
+        phone: cabinetPhone.trim(),
+        region: resolvedReg,
+        district: district || user.district || detectedMapAddress,
+      };
+      try {
+        await setDoc(doc(db, 'users', user.id), updatedUser, { merge: true });
+      } catch {}
+      if (onUserUpdate) {
+        onUserUpdate(updatedUser);
+      }
+    }
+
     setError(null);
     setStep(4);
   };
@@ -217,33 +314,44 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setError(null);
 
     const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
-    const fullDeliveryAddress = `${region}, ${district}${mfy.trim() ? `, ${mfy.trim()} MFY` : ''}, ${streetAddress.trim()}${
-      mapPinned ? ` [Xaritadagi nuqta: ${mapCoords.lat.toFixed(5)}, ${mapCoords.lng.toFixed(5)}]` : ''
+    const fullRecipientName = `${recipientFirstName.trim()} ${recipientLastName.trim()}`.trim();
+    const manualAddressText = [region, district, mfy].filter(Boolean).join(', ');
+    const baseDeliveryAddress = showManualAddressFields && manualAddressText
+      ? manualAddressText
+      : detectedMapAddress || manualAddressText || getNearestRegionName(mapCoords.lat, mapCoords.lng);
+    const fullDeliveryAddress = `${baseDeliveryAddress}${
+      mapPinned ? ` [Google Maps: ${mapCoords.lat.toFixed(5)}, ${mapCoords.lng.toFixed(5)}]` : ''
     }`;
-    const fullPhone = `+998 ${phoneRaw}`;
+    const fullPhone = secondaryPhone.trim() && secondaryPhone.replace(/\D/g, '').length >= 9
+      ? `${cabinetPhone.trim()} (Qo'shimcha: ${secondaryPhone.trim()})`
+      : cabinetPhone.trim();
     const txId = 'TX-' + Date.now().toString(36).toUpperCase();
 
     const orderData: Order = {
       id: orderId,
       buyerId: user.id,
-      buyerName: recipientName.trim() || user.displayName || 'Jismoniy Shaxs',
+      buyerName: fullRecipientName || user.displayName || 'Mijoz',
       buyerPhone: fullPhone,
-      recipientName: recipientName.trim(),
+      recipientName: fullRecipientName,
       recipientPhone: fullPhone,
       deliveryAddress: fullDeliveryAddress,
-      deliveryRegion: region,
-      deliveryDistrict: district,
-      deliveryStreet: streetAddress.trim(),
-      deliveryLandmark: mfy.trim() ? `${mfy.trim()} MFY` : '',
+      deliveryRegion: region || getNearestRegionName(mapCoords.lat, mapCoords.lng),
+      deliveryDistrict: district || detectedMapAddress,
+      deliveryStreet: mfy || `${mapCoords.lat.toFixed(5)}, ${mapCoords.lng.toFixed(5)}`,
+      deliveryLandmark: mfy || detectedMapAddress,
       items: items.map((i) => ({
         productId: i.product.id,
         title: i.product.title,
         quantity: i.quantity,
         unit: i.product.unit,
         price: i.product.price,
+        category: i.product.category,
+        supplierId: i.product.supplierId,
+        supplierInn: i.product.supplierInn,
+        supplierName: i.product.supplierName,
       })),
       totalAmount: grandTotal,
-      status: 'confirmed',
+      status: 'pending',
       vehicleType: grandTotal > 5000000 ? 'Gazel (Tezkor yetkazish)' : 'Kichik yuk mashinasi',
       paymentMethod,
       paymentStatus: paymentMethod === 'cash' ? 'pending' : 'paid',
@@ -254,23 +362,68 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     };
 
     try {
-      // 1. Save to Firestore
-      await setDoc(doc(db, 'orders', orderId), orderData);
-
-      // 2. Save to localStorage orders list
+      // 1. Save to localStorage orders list first so all cabinets (Supplier, Customer, Admin) update immediately
       try {
         const savedOrders = localStorage.getItem('bunkerstroy_orders');
         const ordersList = savedOrders ? JSON.parse(savedOrders) : [];
         ordersList.unshift(orderData);
         localStorage.setItem('bunkerstroy_orders', JSON.stringify(ordersList));
 
-        // 3. Save financial transaction
+        // 1b. Update products salesCount & stock in localStorage and Firestore
+        const savedProds = localStorage.getItem('bunkerstroy_products');
+        if (savedProds) {
+          const prodsList = JSON.parse(savedProds);
+          if (Array.isArray(prodsList)) {
+            const updatedProds = prodsList.map((p: any) => {
+              const orderedItem = items.find((it) => it.product.id === p.id);
+              if (!orderedItem) return p;
+              const nextSales = (Number(p.salesCount) || 0) + orderedItem.quantity;
+              const nextStock = Math.max(0, (Number(p.stock) || 0) - orderedItem.quantity);
+              try {
+                setDoc(doc(db, 'products', p.id), { stock: nextStock, salesCount: nextSales }, { merge: true }).catch(() => {});
+              } catch {}
+              return {
+                ...p,
+                salesCount: nextSales,
+                stock: nextStock,
+              };
+            });
+            localStorage.setItem('bunkerstroy_products', JSON.stringify(updatedProds));
+            window.dispatchEvent(new CustomEvent('bunkerstroy_products_updated'));
+          }
+        }
+
+        // 1c. Update suppliers totalSalesSum (Ta'minotchilar hisob raqamiga o'tkazilgan mablag'lar)
+        const savedSupps = localStorage.getItem('bunkerstroy_suppliers');
+        if (savedSupps) {
+          const suppsList = JSON.parse(savedSupps);
+          if (Array.isArray(suppsList)) {
+            const updatedSupps = suppsList.map((s: any) => {
+              const supplierSoldAmount = items
+                .filter(
+                  (it) =>
+                    (it.product.supplierId && it.product.supplierId === s.id) ||
+                    (it.product.supplierInn && s.inn && it.product.supplierInn === s.inn) ||
+                    (it.product.supplierName || '').toLowerCase() === (s.companyName || '').toLowerCase()
+                )
+                .reduce((acc, it) => acc + it.product.price * it.quantity, 0);
+              if (supplierSoldAmount <= 0) return s;
+              return {
+                ...s,
+                totalSalesSum: (Number(s.totalSalesSum) || 0) + supplierSoldAmount,
+              };
+            });
+            localStorage.setItem('bunkerstroy_suppliers', JSON.stringify(updatedSupps));
+          }
+        }
+
+        // 2. Save financial transaction
         const savedTx = localStorage.getItem('bunkerstroy_transactions');
         const txList = savedTx ? JSON.parse(savedTx) : [];
         const newTx = {
           id: txId,
           type: 'income',
-          category: "Jismoniy shaxs buyurtmasi to'lovi",
+          category: "Ta'minotchi hisob raqamiga o'tkazma (Savdo tushumi)",
           sourceOrDestination: `«${orderData.buyerName}» (${orderData.buyerPhone})`,
           amount: grandTotal,
           paymentMethod:
@@ -290,7 +443,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         txList.unshift(newTx);
         localStorage.setItem('bunkerstroy_transactions', JSON.stringify(txList));
 
-        // 4. System log
+        // 3. System log
         const savedLogs = localStorage.getItem('bunkerstroy_logs');
         const logsList = savedLogs ? JSON.parse(savedLogs) : [];
         const newLog = {
@@ -321,9 +474,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         }
 
         // Notify app
+        window.dispatchEvent(new CustomEvent('bunkerstroy_orders_updated'));
         window.dispatchEvent(new CustomEvent('bunkerstroy_finance_updated'));
+        window.dispatchEvent(new Event('storage'));
       } catch (locErr) {
         console.warn('LocalStorage error:', locErr);
+      }
+
+      // 4. Also persist to Firestore (non-blocking if local auth)
+      try {
+        await setDoc(doc(db, 'orders', orderId), orderData);
+      } catch (fsErr) {
+        console.warn('Firestore order sync notice:', fsErr);
       }
 
       setCompletedOrder(orderData);
@@ -347,8 +509,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-md animate-fadeIn">
-      <div className="bg-[#151719] text-[#F5F5F2] rounded-xl max-w-4xl w-full max-h-[96vh] h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-[#51504A]">
+    <div className="fixed inset-0 z-[60] w-screen h-screen bg-[#151719] flex flex-col overflow-hidden animate-fadeIn">
+      <div className="bg-[#151719] text-[#F5F5F2] w-full h-full flex flex-col overflow-hidden">
         {/* Modal Top Header */}
         <div className="px-5 sm:px-8 py-4 border-b border-[#51504A] bg-[#1D2023] flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -365,7 +527,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-[#B8B8B3]">
-                Buyurtmani tasdiqlash → Manzil kiritiladi → Telefon raqam → To'lov
+                Buyurtmani tasdiqlash → Manzilni tasdiqlash → Telefon raqam → To'lov
               </p>
             </div>
           </div>
@@ -408,7 +570,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <span className="text-[11px] sm:text-xs truncate">1. Buyurtmani tasdiqlash</span>
               </div>
 
-              {/* 2. Manzil kiritiladi */}
+              {/* 2. Manzilni tasdiqlash */}
               <div
                 onClick={() => step > 1 && setStep(2)}
                 className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-lg transition-all border ${
@@ -430,7 +592,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 >
                   {step > 2 ? '✓' : '2'}
                 </div>
-                <span className="text-[11px] sm:text-xs truncate">2. Manzil kiritiladi</span>
+                <span className="text-[11px] sm:text-xs truncate">2. Manzilni tasdiqlash</span>
               </div>
 
               {/* 3. Telefon raqam */}
@@ -499,9 +661,6 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   <Package className="w-5 h-5" />
                   1-Bosqich: Buyurtma qilingan tovarlar ro'yxatini tasdiqlash
                 </h3>
-                <p className="text-xs text-sky-200">
-                  Savatdagi mahsulotlar soni va narxlarini tekshiring hamda tasdiqlang.
-                </p>
               </div>
 
               {items.length === 0 ? (
@@ -545,7 +704,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                     {item.product.title}
                                   </div>
                                   <div className="text-[11px] text-[#FFB800]">
-                                    {item.product.category} • {item.product.unit}
+                                    {item.product.category}
                                   </div>
                                 </div>
                               </div>
@@ -564,8 +723,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                 >
                                   <Minus className="w-3.5 h-3.5" />
                                 </button>
-                                <span className="text-xs font-bold px-2 min-w-[24px] text-center font-mono text-[#F5F5F2]">
-                                  {item.quantity}
+                                <span className="text-xs font-bold px-2 min-w-[44px] text-center font-mono text-[#F5F5F2]">
+                                  {item.quantity} {item.product.unit}
                                 </span>
                                 <button
                                   type="button"
@@ -608,21 +767,11 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       </p>
                     </div>
 
-                    <div className="bg-[#222528] p-4 rounded-lg border border-[#51504A] space-y-2.5">
-                      <div className="flex justify-between text-xs text-[#B8B8B3]">
-                        <span>Mahsulotlar summasi:</span>
-                        <span className="font-mono font-bold text-[#F5F5F2]">{formatPrice(grandTotal)}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-[#B8B8B3]">
-                        <span>Yetkazib berish (Logistika):</span>
-                        <span className="font-bold text-emerald-400">BEPUL / Standart Bunker</span>
-                      </div>
-                      <div className="pt-2 border-t border-[#51504A] flex justify-between items-baseline">
-                        <span className="text-sm font-bold text-[#F5F5F2]">Jami To'lanadigan Summa:</span>
-                        <span className="text-xl font-black text-[#FFB800] font-mono">
-                          {formatPrice(grandTotal)}
-                        </span>
-                      </div>
+                    <div className="bg-[#222528] p-4 rounded-lg border border-[#51504A] flex items-center justify-between">
+                      <span className="text-sm font-bold text-[#F5F5F2]">Jami To'lanadigan Summa:</span>
+                      <span className="text-xl font-black text-[#FFB800] font-mono">
+                        {formatPrice(grandTotal)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -631,313 +780,294 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           )}
 
           {/* ============================================================== */}
-          {/* 2-BOSQICH: MANZIL KIRITILADI                                  */}
+          {/* 2-BOSQICH: MANZILNI TASDIQLASH                                */}
           {/* ============================================================== */}
           {step === 2 && (
             <div className="space-y-6 animate-fadeIn">
               <div className="pb-3 border-b border-[#51504A]">
                 <h3 className="text-base sm:text-lg font-bold text-[#FFB800] flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
-                  2-Bosqich: Yetkazib berish manzili kiritiladi
+                  2-Bosqich: Manzilni tasdiqlash
                 </h3>
-                <p className="text-xs text-[#B8B8B3]">
-                  Mahsulotlarni qayerga yetkazilishi kerakligini aniq belgilang.
-                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Viloyat */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#B8B8B3] flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#FFB800]" />
-                    Viloyat / Hudud *
-                  </label>
-                  <select
-                    value={region}
-                    onChange={(e) => setRegion(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-[#222528] border border-[#51504A] text-[#F5F5F2] font-bold text-xs sm:text-sm focus:border-[#FFB800] focus:outline-none transition-colors"
-                  >
-                    {Object.keys(REGIONS_AND_DISTRICTS).map((reg) => (
-                      <option key={reg} value={reg} className="bg-[#151719] text-[#F5F5F2]">
-                        {reg}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Tuman / Shahar */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#B8B8B3] flex items-center gap-1.5">
-                    <Building2 className="w-3.5 h-3.5 text-[#FFB800]" />
-                    Tuman / Shahar *
-                  </label>
-                  <select
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-[#222528] border border-[#51504A] text-[#F5F5F2] font-bold text-xs sm:text-sm focus:border-[#FFB800] focus:outline-none transition-colors"
-                  >
-                    {districts.map((dist) => (
-                      <option key={dist} value={dist} className="bg-[#151719] text-[#F5F5F2]">
-                        {dist}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* MFY kiritish imkoni */}
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
-                    <span>MFY (Mahalla fuqarolar yig'ini) nomi</span>
-                    <span className="text-[11px] text-[#FFB800] font-normal">Mahallangiz nomi</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={mfy}
-                    onChange={(e) => setMfy(e.target.value)}
-                    placeholder="Masalan: Yangi Hayot MFY yoki Navbahor mahallasi"
-                    className="w-full px-4 py-3 rounded-lg bg-[#222528] border border-[#51504A] text-[#F5F5F2] font-medium text-xs sm:text-sm focus:border-[#FFB800] focus:outline-none transition-colors placeholder:text-[#B8B8B3]/50"
-                  />
-                </div>
-
-                {/* Bitta butun aniq manzil: Ko'cha nomi, Uy / Xonadon raqami */}
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
-                    <span>Ko'cha nomi, Uy / Xonadon raqami *</span>
-                    <span className="text-[11px] text-[#FFB800] font-normal">Aynan aniq manzil</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={streetAddress}
-                    onChange={(e) => setStreetAddress(e.target.value)}
-                    placeholder="Masalan: Bunyodkor ko'chasi, 45-uy yoki 12-bino"
-                    className="w-full px-4 py-3 rounded-lg bg-[#222528] border border-[#51504A] text-[#F5F5F2] font-medium text-xs sm:text-sm focus:border-[#FFB800] focus:outline-none transition-colors placeholder:text-[#B8B8B3]/50"
-                  />
-                </div>
-
-                {/* Xaritadan belgilash bo'limi */}
-                <div className="md:col-span-2 space-y-3 pt-1">
+              <div className="space-y-4">
+                {/* Real Google Maps orqali xaritadan belgilash bo'limi */}
+                <div className="space-y-3">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="text-xs font-bold text-[#B8B8B3] flex items-center gap-1.5">
                       <MapPin className="w-4 h-4 text-[#FFB800]" />
-                      Xaritadan belgilash (Yetkazish lokatsiyasi)
+                      Xaritadan belgilash (Google Maps)
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMapPicker(!showMapPicker);
-                        setMapPinned(true);
-                      }}
-                      className="btn-industrial-yellow px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
-                    >
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span>{showMapPicker ? "Xaritani yopish" : "Xaritadan nuqta belgilash"}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMapPicker(true);
+                          handleDetectGpsLocation();
+                        }}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        <span>{gpsLoading ? 'Aniqlanmoqda...' : 'GPS Joylashuvim'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMapPicker(!showMapPicker);
+                          setMapPinned(true);
+                          setError(null);
+                        }}
+                        className="btn-industrial-yellow px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95 transition-all"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>{showMapPicker ? 'Xaritani yopish' : 'Xaritadan nuqta belgilash'}</span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Interaktiv Xarita Tanlagichi */}
+                  {/* Real Google Maps Interaktiv Xarita Tanlagichi */}
                   {showMapPicker && (
-                    <div className="rounded-lg border border-[#51504A] overflow-hidden bg-[#222528] p-4 space-y-3 animate-fadeIn">
-                      <div className="flex items-center justify-between text-xs text-[#B8B8B3]">
+                    <div className="rounded-xl border border-[#51504A] overflow-hidden bg-[#222528] p-4 space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between flex-wrap gap-2 text-xs text-[#B8B8B3]">
                         <span className="font-bold text-[#F5F5F2] flex items-center gap-1.5">
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                          Yetkazish nuqtasi tanlandi
+                          <Globe className="w-4 h-4 text-emerald-400" />
+                          Google Maps — Yetkazish lokatsiyasi
                         </span>
-                        <span className="font-mono text-[#FFB800] font-bold bg-[#151719] px-2.5 py-1 rounded border border-[#51504A]">
-                          {mapCoords.lat.toFixed(4)}° N, {mapCoords.lng.toFixed(4)}° E
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setMapType(mapType === 'm' ? 'k' : 'm')}
+                            className="px-2.5 py-1 rounded bg-[#151719] hover:bg-[#292C2F] text-[#FFB800] border border-[#51504A] text-[11px] font-bold cursor-pointer"
+                          >
+                            {mapType === 'm' ? "Sun'iy yo'ldosh (Satellite)" : 'Xarita (Ko‘chalar)'}
+                          </button>
+                          <span className="font-mono text-[#FFB800] font-bold bg-[#151719] px-2.5 py-1 rounded border border-[#51504A]">
+                            {mapCoords.lat.toFixed(4)}° N, {mapCoords.lng.toFixed(4)}° E
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Stylized Visual Map with Interactive Clickable Pin */}
-                      <div
-                        onClick={(e) => {
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          const x = (e.clientX - rect.left) / rect.width;
-                          const y = (e.clientY - rect.top) / rect.height;
-                          setMapCoords({
-                            lat: 41.28 + (1 - y) * 0.08,
-                            lng: 69.20 + x * 0.10,
-                          });
-                          setMapPinned(true);
-                        }}
-                        className="relative h-44 sm:h-52 w-full rounded-lg bg-[#151719] border border-[#51504A] cursor-crosshair overflow-hidden group select-none shadow-inner"
-                        title="Xaritada joylashuvni tanlash uchun bosing"
-                      >
-                        {/* Map Grid Pattern */}
-                        <div className="absolute inset-0 opacity-20 bg-[linear-gradient(to_right,#FFB80020_1px,transparent_1px),linear-gradient(to_bottom,#FFB80020_1px,transparent_1px)] bg-[size:24px_24px]" />
-                        
-                        {/* Roads & City Grid Lines */}
-                        <div className="absolute top-1/2 left-0 right-0 h-1 bg-[#FFB800]/30 -translate-y-1/2" />
-                        <div className="absolute top-0 bottom-0 left-1/3 w-1 bg-[#51504A]/50" />
-                        <div className="absolute top-0 bottom-0 left-2/3 w-1 bg-[#51504A]/50" />
-                        <div className="absolute top-1/4 left-0 right-0 h-0.5 bg-[#51504A]/30" />
-                        <div className="absolute top-3/4 left-0 right-0 h-0.5 bg-[#51504A]/30" />
+                      {/* Real Google Maps Embed */}
+                      <div className="relative h-64 sm:h-80 w-full rounded-xl bg-[#151719] border border-[#51504A] overflow-hidden shadow-inner">
+                        <iframe
+                          title="Google Maps Location Picker"
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          loading="lazy"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                            `${mapCoords.lat},${mapCoords.lng}`
+                          )}&hl=uz&z=16&t=${mapType}&output=embed`}
+                        />
 
-                        {/* Interactive Pin Marker */}
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none animate-bounce">
-                          <div className="px-2 py-0.5 rounded bg-[#FFB800] text-[#151719] font-bold text-[9px] shadow-lg whitespace-nowrap mb-0.5 font-mono">
+                        {/* Markazdagi aniq yetkazish nuqtasi ko'rsatkichi */}
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full flex flex-col items-center pointer-events-none z-10">
+                          <div className="px-2 py-0.5 rounded bg-[#151719]/90 text-[#FFB800] border border-[#FFB800] font-bold text-[10px] shadow-lg whitespace-nowrap mb-0.5 font-mono">
                             Yetkazish nuqtasi
                           </div>
-                          <MapPin className="w-8 h-8 text-[#FFB800] drop-shadow-[0_4px_8px_rgba(255,184,0,0.5)] fill-[#FFB800]" />
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#FFB800]/50 animate-ping -mt-1" />
-                        </div>
-
-                        <div className="absolute bottom-2 left-2 text-[10px] text-[#B8B8B3] bg-[#151719]/90 px-2 py-1 rounded border border-[#51504A] pointer-events-none">
-                          Xarita ustiga bosib nuqtani siljiting
+                          <MapPin className="w-8 h-8 text-red-500 drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)] fill-red-500" />
                         </div>
                       </div>
 
-                      <div className="text-right">
+                      <div className="flex items-center justify-between flex-wrap gap-2 pt-1">
+                        <div className="flex items-center gap-1.5 text-[11px] text-[#B8B8B3] flex-wrap">
+                          <span>Nuqtani aniq surish:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMapCoords((c) => ({ ...c, lat: c.lat + 0.002 }));
+                              setMapPinned(true);
+                              setError(null);
+                            }}
+                            className="px-2 py-1 rounded bg-[#151719] hover:bg-[#292C2F] text-[#F5F5F2] border border-[#51504A] font-mono cursor-pointer"
+                          >
+                            ↑ Shimol
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMapCoords((c) => ({ ...c, lat: c.lat - 0.002 }));
+                              setMapPinned(true);
+                              setError(null);
+                            }}
+                            className="px-2 py-1 rounded bg-[#151719] hover:bg-[#292C2F] text-[#F5F5F2] border border-[#51504A] font-mono cursor-pointer"
+                          >
+                            ↓ Janub
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMapCoords((c) => ({ ...c, lng: c.lng - 0.002 }));
+                              setMapPinned(true);
+                              setError(null);
+                            }}
+                            className="px-2 py-1 rounded bg-[#151719] hover:bg-[#292C2F] text-[#F5F5F2] border border-[#51504A] font-mono cursor-pointer"
+                          >
+                            ← G‘arb
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMapCoords((c) => ({ ...c, lng: c.lng + 0.002 }));
+                              setMapPinned(true);
+                              setError(null);
+                            }}
+                            className="px-2 py-1 rounded bg-[#151719] hover:bg-[#292C2F] text-[#F5F5F2] border border-[#51504A] font-mono cursor-pointer"
+                          >
+                            → Sharq
+                          </button>
+                        </div>
+
                         <button
                           type="button"
                           onClick={() => {
                             setMapPinned(true);
-                            setShowMapPicker(false);
+                            setError(null);
+                            setStep(3);
                           }}
                           className="btn-industrial-yellow px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer shadow-sm"
                         >
-                          Nuqtani Saqlash
+                          Joylashuvni Tasdiqlash
                         </button>
                       </div>
                     </div>
                   )}
-
-                  {mapPinned && !showMapPicker && (
-                    <div className="p-3 rounded-lg bg-[#222528] border border-[#51504A] text-emerald-400 flex items-center justify-between text-xs animate-fadeIn">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Xaritadagi nuqta aniq belgilandi ({mapCoords.lat.toFixed(4)}° N, {mapCoords.lng.toFixed(4)}° E)</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowMapPicker(true)}
-                        className="text-[#FFB800] hover:underline font-bold text-xs cursor-pointer"
-                      >
-                        O'zgartirish
-                      </button>
-                    </div>
-                  )}
                 </div>
-              </div>
 
-              {/* Preview Address Badge */}
-              {streetAddress && (
-                <div className="p-4 rounded-lg bg-[#222528] border border-[#FFB800]/40 flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#FFB800] shrink-0 mt-0.5" />
-                  <div>
-                    <div className="text-xs font-bold text-[#FFB800]">Belgilangan Yetkazish Manzili:</div>
-                    <div className="text-sm font-semibold text-[#F5F5F2]">
-                      {region}, {district}{mfy ? `, ${mfy} MFY` : ''}, {streetAddress}
-                      {mapPinned && <span className="text-emerald-400 text-xs ml-2 font-mono">📍 [Xaritada belgilangan]</span>}
+                {/* Qabul qilingan Real Joylashuv ko'rsatkichi */}
+                <div className="p-4 rounded-xl bg-[#222528] border border-emerald-500/50 flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs font-bold text-emerald-400">
+                        Qabul qilingan yetkazish joylashuvi:
+                      </div>
+                      <div className="text-sm font-bold text-[#F5F5F2] mt-0.5">
+                        {detectedMapAddress}
+                      </div>
+                      <div className="text-xs font-mono text-[#FFB800] mt-0.5">
+                        📍 Google Maps: {mapCoords.lat.toFixed(5)}° N, {mapCoords.lng.toFixed(5)}° E
+                      </div>
                     </div>
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
 
           {/* ============================================================== */}
-          {/* 3-BOSQICH: TELEFON RAQAM                                      */}
+          {/* 3-BOSQICH: ISM, FAMILIYA VA TELEFON RAQAM                     */}
           {/* ============================================================== */}
           {step === 3 && (
             <div className="space-y-6 animate-fadeIn">
               <div className="pb-3 border-b border-[#51504A]">
                 <h3 className="text-base sm:text-lg font-bold text-[#FFB800] flex items-center gap-2">
                   <Phone className="w-5 h-5" />
-                  3-Bosqich: Qabul qiluvchi telefon raqami
+                  3-Bosqich: Qabul qiluvchi ma'lumotlari va telefon raqami
                 </h3>
-                <p className="text-xs text-[#B8B8B3]">
-                  Yukni qabul qilib oluvchi shaxs va uning faol telefon raqamini tasdiqlang.
-                </p>
               </div>
 
               <div className="max-w-xl mx-auto space-y-5 bg-[#222528] p-5 sm:p-7 rounded-lg border border-[#51504A]">
-                {/* Qabul qiluvchi ismi */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#B8B8B3]">Qabul qiluvchi F.I.O *</label>
-                  <input
-                    type="text"
-                    value={recipientName}
-                    onChange={(e) => setRecipientName(e.target.value)}
-                    placeholder="Masalan: Sardor Aliyev"
-                    className="w-full px-4 py-3 rounded-lg bg-[#151719] border border-[#51504A] text-[#F5F5F2] font-bold text-sm focus:border-[#FFB800] focus:outline-none"
-                  />
+                {/* Kabinetdagi Ism va Familiya */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
+                      <span>Ism *</span>
+                      <span className="text-[10px] text-emerald-400 font-mono">Kabinetdagi ism</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={recipientFirstName}
+                      onChange={(e) => setRecipientFirstName(e.target.value.replace(/[0-9]/g, ''))}
+                      placeholder="Ismingiz"
+                      className="w-full px-4 py-3 rounded-lg bg-[#151719] border border-[#51504A] text-[#F5F5F2] font-bold text-sm focus:border-[#FFB800] focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
+                      <span>Familiya *</span>
+                      {!user?.lastName && (
+                        <span className="text-[10px] text-[#FFB800] font-mono">Kiritish talab qilinadi</span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={recipientLastName}
+                      onChange={(e) => setRecipientLastName(e.target.value.replace(/[0-9]/g, ''))}
+                      placeholder="Familiyangizni kiriting"
+                      className="w-full px-4 py-3 rounded-lg bg-[#151719] border border-[#51504A] text-[#F5F5F2] font-bold text-sm focus:border-[#FFB800] focus:outline-none"
+                    />
+                  </div>
                 </div>
 
-                {/* Telefon raqam */}
+                {/* Asosiy Telefon raqam (Kabinetdagi telefon raqam ishlatiladi) */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
-                    <span>Asosiy telefon raqami *</span>
-                    <span className="text-[11px] text-[#FFB800] font-bold">O'zbekiston (+998)</span>
+                    <span>Telefon raqami (Kabinetdagi raqam) *</span>
+                    <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" /> Kabinet raqami
+                    </span>
                   </label>
                   <div className="flex items-center rounded-lg bg-[#151719] border border-[#51504A] focus-within:border-[#FFB800] overflow-hidden">
-                    <span className="px-4 py-3 text-xs sm:text-sm font-mono font-bold text-[#FFB800] border-r border-[#51504A] bg-[#222528]">
-                      +998
+                    <span className="px-3.5 py-3 text-xs sm:text-sm font-mono font-bold text-[#FFB800] border-r border-[#51504A] bg-[#292C2F]">
+                      <Phone className="w-4 h-4" />
                     </span>
                     <input
                       type="tel"
-                      value={formattedPhoneDisplay()}
-                      onChange={(e) => handlePhoneInputChange(e.target.value)}
-                      placeholder="(90) 123-45-67"
+                      inputMode="numeric"
+                      maxLength={17}
+                      value={cabinetPhone}
+                      onChange={(e) => setCabinetPhone(formatUzPhoneInput(e.target.value))}
                       className="w-full px-4 py-3 bg-transparent text-[#F5F5F2] font-mono font-bold text-sm sm:text-base focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/* SMS tasdiqlash bloki */}
-                <div className="p-4 rounded-lg bg-[#292C2F] border border-[#51504A] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#F5F5F2] flex items-center gap-1.5">
-                      <Smartphone className="w-4 h-4 text-[#FFB800]" />
-                      Telefon raqamini tekshirish (SMS kod)
-                    </span>
-                    {phoneVerified ? (
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" /> Tasdiqlangan
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-[#FFB800] font-mono">1 martalik SMS</span>
-                    )}
-                  </div>
-
-                  {!phoneVerified ? (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={smsCodeInput}
-                          onChange={(e) => setSmsCodeInput(e.target.value)}
-                          placeholder="4 xonali SMS kodni kiriting"
-                          className="flex-1 px-3 py-2 rounded-lg bg-[#151719] border border-[#51504A] text-center font-mono font-bold text-[#FFB800] tracking-widest text-sm focus:outline-none focus:border-[#FFB800]"
-                        />
+                {/* Oxirida Qo'shimcha telefon raqam qo'shish imkoni */}
+                <div className="pt-2 border-t border-[#51504A]">
+                  {!showAdditionalPhone && !secondaryPhone ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAdditionalPhone(true);
+                        setSecondaryPhone('+998 ');
+                      }}
+                      className="w-full py-2.5 px-4 rounded-lg bg-[#151719] hover:bg-[#292C2F] text-[#FFB800] border border-dashed border-[#FFB800]/60 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>Qo‘shimcha telefon raqam qo‘shish</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-[#B8B8B3] flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5 text-[#FFB800]" />
+                          Qo‘shimcha telefon raqami
+                        </label>
                         <button
                           type="button"
-                          onClick={smsSent ? handleVerifySms : handleSendSms}
-                          className="btn-industrial-yellow px-4 py-2 rounded-lg text-xs font-bold cursor-pointer shadow-sm"
+                          onClick={() => {
+                            setShowAdditionalPhone(false);
+                            setSecondaryPhone('');
+                          }}
+                          className="text-[11px] text-red-400 hover:underline cursor-pointer"
                         >
-                          {smsSent ? 'Tasdiqlash' : 'Kodni yuborish'}
+                          O‘chirish
                         </button>
                       </div>
-                      {smsSent && (
-                        <div className="text-[11px] text-emerald-400 font-mono flex items-center justify-between">
-                          <span>SMS yuborildi! Test kodi: <b>{generatedSmsCode}</b></span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSmsCodeInput(generatedSmsCode);
-                              setPhoneVerified(true);
-                            }}
-                            className="text-[#FFB800] hover:underline font-bold cursor-pointer"
-                          >
-                            Avto kiritish
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-emerald-400 font-bold flex items-center gap-1.5 bg-[#151719] p-2.5 rounded-lg border border-emerald-800/60">
-                      <CheckCircle className="w-4 h-4 text-emerald-400" />
-                      Telefon raqami muvaffaqiyatli tekshirildi. Kuryer yetib borganida ushbu raqamga qo'ng'iroq qiladi.
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={17}
+                        value={secondaryPhone}
+                        onChange={(e) => setSecondaryPhone(formatUzPhoneInput(e.target.value))}
+                        placeholder="+998 XX XXX XX XX"
+                        className="w-full px-4 py-3 rounded-lg bg-[#151719] border border-[#51504A] text-[#F5F5F2] font-mono font-bold text-sm focus:border-[#FFB800] focus:outline-none"
+                      />
                     </div>
                   )}
                 </div>
@@ -1110,8 +1240,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <label className="text-[11px] text-[#B8B8B3]">Karta raqami</label>
                       <input
                         type="text"
+                        inputMode="numeric"
+                        maxLength={19}
                         value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 16);
+                          const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ');
+                          setCardNumber(formatted);
+                        }}
                         placeholder="8600 0000 0000 0000"
                         className="w-full px-3.5 py-2.5 rounded-lg bg-[#151719] border border-[#51504A] font-mono font-bold text-[#F5F5F2] text-xs sm:text-sm focus:outline-none focus:border-[#FFB800]"
                       />
@@ -1120,8 +1256,17 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       <label className="text-[11px] text-[#B8B8B3]">Muddati (OO/YY)</label>
                       <input
                         type="text"
+                        inputMode="numeric"
+                        maxLength={5}
                         value={cardExpire}
-                        onChange={(e) => setCardExpire(e.target.value)}
+                        onChange={(e) => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 4);
+                          if (digits.length >= 3) {
+                            setCardExpire(`${digits.slice(0, 2)}/${digits.slice(2, 4)}`);
+                          } else {
+                            setCardExpire(digits);
+                          }
+                        }}
                         placeholder="12/28"
                         className="w-full px-3.5 py-2.5 rounded-lg bg-[#151719] border border-[#51504A] font-mono font-bold text-[#F5F5F2] text-xs sm:text-sm text-center focus:outline-none focus:border-[#FFB800]"
                       />
@@ -1130,34 +1275,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 </div>
               )}
 
-              {/* Qo'shimcha zaxira telefon (ixtiyoriy) - Step 4 da */}
-              <div className="p-4 rounded-lg bg-[#222528] border border-[#51504A] space-y-1.5">
-                <label className="text-xs font-bold text-[#B8B8B3] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Phone className="w-3.5 h-3.5 text-[#FFB800]" />
-                    Qo'shimcha zaxira telefon (ixtiyoriy)
-                  </span>
-                  <span className="text-[10px] text-[#B8B8B3]/70">Ishonchli kishi</span>
-                </label>
-                <input
-                  type="tel"
-                  value={secondaryPhone}
-                  onChange={(e) => setSecondaryPhone(e.target.value)}
-                  placeholder="+998 (__) ___-__-__"
-                  className="w-full px-4 py-2.5 rounded-lg bg-[#151719] border border-[#51504A] text-[#F5F5F2] font-medium text-xs sm:text-sm focus:border-[#FFB800] focus:outline-none"
-                />
-              </div>
-
               {/* Order Final Summary */}
               <div className="p-4 sm:p-5 rounded-lg bg-[#222528] border border-[#FFB800]/50 space-y-3">
                 <div className="flex items-center justify-between pb-2 border-b border-[#51504A] flex-wrap gap-2">
                   <div className="text-xs font-bold text-[#B8B8B3]">
-                    Yetkazish: <span className="text-[#F5F5F2]">{region}, {district}{mfy ? `, ${mfy} MFY` : ''}, {streetAddress}</span>
-                    {mapPinned && <span className="text-emerald-400 text-xs ml-1 font-mono">📍 [Xaritadan]</span>}
+                    Yetkazish: <span className="text-[#F5F5F2]">{detectedMapAddress || [region, district, mfy].filter(Boolean).join(', ')}</span>
+                    <span className="text-emerald-400 text-xs ml-1 font-mono">📍 [{mapCoords.lat.toFixed(4)}, {mapCoords.lng.toFixed(4)}]</span>
                   </div>
                   <div className="text-xs font-bold text-[#B8B8B3]">
-                    Aloqa: <span className="text-[#F5F5F2]">+998 {phoneRaw}</span>
-                    {secondaryPhone && <span className="text-[#B8B8B3] text-[11px] ml-1">({secondaryPhone})</span>}
+                    Aloqa: <span className="text-[#F5F5F2]">{cabinetPhone}</span>
+                    {secondaryPhone.trim() && secondaryPhone.replace(/\D/g, '').length >= 9 && (
+                      <span className="text-[#FFB800] text-[11px] ml-1">({secondaryPhone})</span>
+                    )}
                   </div>
                 </div>
 
@@ -1325,7 +1454,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   disabled={items.length === 0}
                   className="btn-industrial-yellow px-5 sm:px-6 py-2.5 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 shadow-sm cursor-pointer active:scale-95 disabled:opacity-50 transition-all"
                 >
-                  <span>Keyingisi: Manzil kiritish</span>
+                  <span>Keyingisi: Manzilni tasdiqlash</span>
                   <ChevronRight className="w-4 h-4 stroke-[2.5]" />
                 </button>
               )}

@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #151719;
-  --bg-secondary: #222528;
-  --bg-card: #292C2F;
+  --bg-primary: #ffffff;
+  --bg-secondary: #0A1931;
+  --bg-card: #0F2547;
   --color-yellow: #FFB800;
   --color-yellow-bright: #FFC928;
   --text-primary: #F5F5F2;
-  --text-secondary: #B8B8B3;
-  --border-industrial: #51504A;
-  --metallic-highlight: #777A7C;
+  --text-secondary: #BAE6FD;
+  --border-industrial: #1E3A6D;
+  --metallic-highlight: #2E5A9C;
 }
 
 html, body, #root {
@@ -18,8 +18,8 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow-x: clip;
-  background-color: #151719;
-  color: #F5F5F2;
+  background-color: #ffffff;
+  color: #0A1931;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
 }
 
@@ -27,59 +27,59 @@ html, body, #root {
   width: 100vw;
   height: 100vh;
   overflow-y: auto;
-  background-color: #151719;
+  background-color: #ffffff;
 }
 
 /* =========================================================================
-   RETRO INDUSTRIAL UTILITIES & TEXTURES
+   TYOMNIY SINIY & INDUSTRIAL UTILITIES
    ========================================================================= */
 
 /* Industrial Primary Canvas */
 .bg-industrial-primary {
-  background-color: #151719;
+  background-color: #071326;
 }
 
 /* Industrial Secondary Surface */
 .bg-industrial-secondary {
-  background-color: #222528;
+  background-color: #0A1931;
 }
 
 /* Industrial Card Surface */
 .bg-industrial-card {
-  background-color: #292C2F;
+  background-color: #0F2547;
 }
 
 /* Industrial Borders */
 .border-industrial {
-  border-color: #51504A;
+  border-color: #1E3A6D;
 }
 
 .border-industrial-highlight {
-  border-color: #777A7C;
+  border-color: #2E5A9C;
 }
 
-/* Brushed Steel Gradient */
+/* Dark Blue Gradient Surface */
 .brushed-steel {
-  background: linear-gradient(180deg, #25282B 0%, #1D1F22 100%);
-  border: 1px solid #51504A;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 16px rgba(0, 0, 0, 0.4);
+  background: linear-gradient(180deg, #0F2547 0%, #0A1931 100%);
+  border: 1px solid #1E3A6D;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(10, 25, 49, 0.25);
 }
 
 .brushed-steel-header {
-  background: linear-gradient(180deg, #1D2023 0%, #151719 100%);
-  border-bottom: 1px solid #51504A;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(255, 184, 0, 0.15);
+  background: linear-gradient(180deg, #0A1931 0%, #071326 100%);
+  border-bottom: 2px solid #1E3A6D;
+  box-shadow: 0 4px 20px rgba(10, 25, 49, 0.35), inset 0 -1px 0 rgba(255, 184, 0, 0.15);
 }
 
 .industrial-card {
-  background-color: #292C2F;
-  border: 1px solid #51504A;
+  background-color: #0A1931;
+  border: 1px solid #1E3A6D;
   transition: all 0.2s ease-in-out;
 }
 
 .industrial-card:hover {
-  border-color: #777A7C;
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 184, 0, 0.2);
+  border-color: #2E5A9C;
+  box-shadow: 0 8px 24px -4px rgba(10, 25, 49, 0.45), 0 0 0 1px rgba(255, 184, 0, 0.25);
 }
 
 /* Restrained Hazard Stripe Accent */
@@ -88,8 +88,8 @@ html, body, #root {
     -45deg,
     #FFB800 0,
     #FFB800 6px,
-    #151719 6px,
-    #151719 12px
+    #0A1931 6px,
+    #0A1931 12px
   );
 }
 
@@ -98,24 +98,24 @@ html, body, #root {
   width: 6px;
   height: 6px;
   border-radius: 9999px;
-  background: radial-gradient(circle at 35% 35%, #9A9E9F, #51504A 70%, #292C2F);
+  background: radial-gradient(circle at 35% 35%, #93C5FD, #1E3A6D 70%, #0A1931);
   box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.3);
   display: inline-block;
 }
 
 /* Subtle Technical Grid Overlay */
 .tech-grid-pattern {
-  background-image: linear-gradient(to right, rgba(81, 80, 74, 0.12) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(81, 80, 74, 0.12) 1px, transparent 1px);
+  background-image: linear-gradient(to right, rgba(30, 58, 109, 0.12) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(30, 58, 109, 0.12) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
 /* Primary Yellow Button */
 .btn-industrial-yellow {
   background-color: #FFB800;
-  color: #151719;
-  font-weight: 700;
-  border: 1px solid #FFC928;
+  color: #000000;
+  font-weight: 800;
+  border: 1px solid #E5A600;
   transition: all 0.15s ease-in-out;
 }
 
@@ -130,15 +130,15 @@ html, body, #root {
 
 /* Industrial Secondary Button */
 .btn-industrial-dark {
-  background-color: #292C2F;
-  color: #F5F5F2;
-  border: 1px solid #51504A;
+  background-color: #132C54;
+  color: #FFFFFF;
+  border: 1px solid #2E5A9C;
   transition: all 0.15s ease-in-out;
 }
 
 .btn-industrial-dark:hover {
-  background-color: #34373B;
-  border-color: #777A7C;
+  background-color: #1B3B6F;
+  border-color: #FFB800;
   color: #FFB800;
 }
 
@@ -155,11 +155,11 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-track {
-  background: #151719;
+  background: #f1f5f9;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #51504A;
+  background: #1E3A6D;
   border-radius: 3px;
 }
 

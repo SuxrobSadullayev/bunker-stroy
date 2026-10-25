@@ -13,10 +13,16 @@ const router = Router();
 router.get('/test-stirs', (_req: Request, res: Response) => {
   res.json({
     active: [
-      { inn: '201122334', name: '«BUNKER STROY INVEST» MChJ', status: 'Faol' },
-      { inn: '305566778', name: '«TOSHKENT G\'ISHT SERVIS» MChJ', status: 'Faol' },
-      { inn: '123456789', name: '«SAMARQAND CEMENT INDUSTRY» QK MChJ', status: 'Faol' },
-      { inn: '987654321', name: '«VODIY LOGISTIKA TRANS» MChJ', status: 'Faol' },
+      { inn: '201122334', name: '«BUNKER STROY INVEST» MChJ', director: 'Karimov Jasur Bahromovich', region: 'Toshkent shahri', district: 'Yunusobod tumani', status: 'Faol' },
+      { inn: '305566778', name: '«TOSHKENT G\'ISHT SERVIS» MChJ', director: 'Xolmatov Dilshod Rustamovich', region: 'Toshkent viloyati', district: 'Yangiyo‘l tumani', status: 'Faol' },
+      { inn: '123456789', name: '«SAMARQAND CEMENT INDUSTRY» QK MChJ', director: 'Mirzayev Ulug‘bek Shavkatovich', region: 'Samarqand viloyati', district: 'Pastdarg‘om tumani', status: 'Faol' },
+      { inn: '987654321', name: '«VODIY LOGISTIKA TRANS» MChJ', director: 'Rahimov Alisher Baxtiyorovich', region: 'Farg‘ona viloyati', district: 'Qo‘qon shahri', status: 'Faol' },
+      { inn: '200362124', name: '«QIZILQUMSEMENT SANOAT ZAVODI» MChJ', director: 'Nazarov Bekzod Ilhomovich', region: 'Navoiy viloyati', district: 'Navoiy shahri', status: 'Faol' },
+      { inn: '200245189', name: '«OHANGARON SEMENT KOMBINATI» MChJ', director: 'Abdullayev Farrux Sobirovich', region: 'Toshkent viloyati', district: 'Ohangaron shahri', status: 'Faol' },
+      { inn: '200154872', name: '«BEKOBOD METALL PROKAT ZAVODI» MChJ', director: 'Tursunov Sardor G‘ulomovich', region: 'Toshkent viloyati', district: 'Bekobod shahri', status: 'Faol' },
+      { inn: '206123456', name: '«BUXORO GIPS VA QURUQ QORISHMALAR ZAVODI» XK MChJ', director: 'Jo‘rayev Anvar Mahmudovich', region: 'Buxoro viloyati', district: 'Kogon shahri', status: 'Faol' },
+      { inn: '304556677', name: '«GRAND STROY SAVDO MARKAZI» MChJ', director: 'Yuldashev Sherzod Akmalovich', region: 'Toshkent shahri', district: 'Sergeli tumani', status: 'Faol' },
+      { inn: '308221144', name: '«ANDIJON QURILISH SAVDO TA’MINOT» MChJ', director: 'Qodirov Azizbek O‘ktamovich', region: 'Andijon viloyati', district: 'Andijon shahri', status: 'Faol' },
     ],
     liquidated: [
       { inn: '209999999', name: '«ESKI QURILISH INVEST» MChJ', status: 'Tugatilgan (Likvidatsiya)' },
@@ -40,6 +46,7 @@ router.get('/test-stirs', (_req: Request, res: Response) => {
  * 4. Tashkilot nomi va holati (faol/tugatilgan)
  */
 const handleLookup = async (req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   const inn: string = res.locals.cleanInn || (req.query.inn as string) || req.body?.inn;
 
   try {

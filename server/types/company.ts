@@ -5,17 +5,30 @@
 export type CompanyStatus = 'active' | 'liquidated' | 'suspended';
 
 export interface CompanyInfo {
-  inn: string; // 9 xonali STIR
-  companyName: string; // Tashkilot to'liq nomi (MChJ, QK va h.k.)
-  shortName?: string;
+  inn: string; // 9 xonali STIR (TIN)
+  companyName: string; // Tashkilot to'liq rasmiy nomi
+  shortName?: string; // Tashkilot qisqacha nomi
   status: CompanyStatus; // 'active' (Faol) | 'liquidated' (Tugatilgan) | 'suspended' (To'xtatilgan)
   statusDescription: string; // O'zbek tilidagi tavsifi
-  director?: string; // Rahbar F.I.Sh.
-  address?: string; // Yuridik manzil
+  director?: string; // Direktor / Rahbar F.I.Sh.
+  phone?: string; // Tashkilot telefon raqami
+  email?: string; // Tashkilot email manzili
+  address?: string; // To'liq yuridik manzil
+  locality?: string; // Viloyat, tuman, shahar (masalan: Qashqadaryo viloyati, Qarshi tumani, Beshkent shahri)
   region?: string; // Viloyat / Shahar
   district?: string; // Tuman
-  registrationDate?: string; // Ro'yxatdan o'tgan sana
-  activityType?: string; // Faoliyat yo'nalishi (IFUT / OKED)
+  registrationDate?: string; // Ro'yxatdan o'tgan sana (masalan: 06.06.2026)
+  registrationOrgan?: string; // Ro'yxatdan o'tkazuvchi organ
+  activityType?: string; // Asosiy faoliyat turi (OKED / IFUT)
+  okedCode?: string; // OKED kodi (masalan: 62010)
+  thsht?: string; // Tashkiliy-huquqiy shakli (THSHT)
+  dbibt?: string; // DBIBT
+  charterCapital?: string; // Ustav kapitali (masalan: 1 700 000 so'm)
+  foundersCount?: number; // Ta'sischilar soni
+  founders?: string[]; // Ta'sischilar ro'yxati va ulushi
+  updatedAt?: string; // Ma'lumot yangilangan sana (masalan: 08.10.2026)
+  source?: string; // Manba: orginfo.uz / stat.uz
+  summaryText?: string; // Yagona xulosa matni
   vatPayer?: boolean; // QQS to'lovchisi
 }
 

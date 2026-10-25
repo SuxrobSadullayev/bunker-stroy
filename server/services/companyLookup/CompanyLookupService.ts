@@ -44,9 +44,9 @@ export class CompanyLookupService implements ICompanyLookupService {
       };
     }
 
-    // 2. 24 soatlik Kesh tekshiruvi
+    // 2. 24 soatlik Kesh tekshiruvi (to'liq summaryText mavjud bo'lsagina)
     const cached = this.cache.get(cleanInn);
-    if (cached) {
+    if (cached && cached.data?.summaryText && !cached.data.summaryText.includes('manba:')) {
       return {
         success: true,
         data: cached.data,

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, UserRole, UserType, SupplierPartner, CompanyInfo, CabinetVerificationStatus } from '../types';
 import { db } from '../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { getAdminConfig } from '../lib/adminSettings';
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { getAdminConfig, BUNKER_ADMIN_CREDENTIALS, getBunkerAdminCredentials, getSubAdmins } from '../lib/adminSettings';
 import { INITIAL_SUPPLIERS } from '../data/suppliersData';
+import { MOCK_FAKE_SUPPLIER_IDS } from '../data/mockData';
 import { REGIONS_AND_DISTRICTS } from '../data/regionsData';
 import { recordCabinetLog } from '../lib/cabinetLogs';
 import { 
@@ -72,9 +73,10 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: UserProfile | null;
-  onUserChange: (user: UserProfile) => void;
+  onUserChange: (user: UserProfile, isNewCabinet?: boolean) => void;
   onAdminLogin?: () => void;
   onSupplierLogin?: (supplier: SupplierPartner) => void;
+  initialMode?: 'login' | 'register';
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ 
@@ -84,9 +86,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onUserChange,
   onAdminLogin,
   onSupplierLogin,
+  initialMode = 'login',
 }) => {
-  // 'login' (Bunker Kabinetiga Kirish) yoki 'register' (Kabinet Yaratish)
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  // 'login' (Kabinetga Kirish) yoki 'register' (Kabinet Yaratish)
+  const [authMode, setAuthMode] = useState<'login' | 'register'>(initialMode);
+  
+  // Modal ochilganda initialMode ('login' yoki 'register') asosida ochilishi
+  useEffect(() => {
+    if (isOpen) {
+      setAuthMode(initialMode || 'login');
+      setRegStep(1);
+      setError(null);
+      setLoading(false);
+    }
+  }, [isOpen, initialMode]);
   
   // Kirish ma'lumotlari
   const [loginInput, setLoginInput] = useState('');
@@ -136,6 +149,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setStirCached(!!data.cached);
       if (data.data?.companyName) {
         setCompanyName(data.data.companyName);
+      }
+      if (data.data?.director) {
+        const dirParts = String(data.data.director).trim().split(/\s+/);
+        if (dirParts.length >= 2) {
+          setRegLastName(dirParts[0]);
+          setRegFirstName(dirParts[1]);
+        } else if (dirParts.length === 1) {
+          setRegFirstName(dirParts[0]);
+        }
+      }
+      if (data.data?.phone) {
+        setRegPhone(formatUzPhone(data.data.phone));
       }
       if (data.data?.region) {
         setRegRegion(data.data.region);
@@ -310,11 +335,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [smsInputCode, setSmsInputCode] = useState('');
   const [smsNotice, setSmsNotice] = useState<string | null>(null);
 
-  // Step 3: Shaxsiy ma'lumotlar va hudud
+  // Step 3: Shaxsiy ma'lumotlar va hudud (kabinet ochilganda viloyat va tuman belgilanmagan holda bo'ladi)
   const [regFirstName, setRegFirstName] = useState('');
   const [regLastName, setRegLastName] = useState('');
-  const [regRegion, setRegRegion] = useState('Toshkent shahri');
-  const [regDistrict, setRegDistrict] = useState('Yunusobod tumani');
+  const [regRegion, setRegRegion] = useState('');
+  const [regDistrict, setRegDistrict] = useState('');
   const [regLogin, setRegLogin] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -402,14 +427,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setRegStep(3);
   };
 
-  // Step 3 dan Step 4 ga o'tish (Ism, Familiya, Manzil tasdiqlanib, Login & Parol yaratishga o'tiladi)
+  // Step 3 dan Step 4 ga o'tish (Ism tasdiqlanib, Login & Parol yaratishga o'tiladi)
   const handleProceedToStep4 = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const tFirst = regFirstName.trim();
-    const tLast = regLastName.trim();
-    if (!tFirst || !tLast) {
-      setError("Iltimos, ism va familiyangizni to‘liq kiriting.");
+    if (!tFirst) {
+      setError("Iltimos, ismingizni kiriting.");
       return;
     }
     // Yuk mashinasi 4-raqamiga yuradi
@@ -427,8 +451,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     const tFirst = regFirstName.trim();
     const tLast = regLastName.trim();
 
-    if (!tFirst || !tLast) {
-      setError("Iltimos, ism va familiyangizni to‘liq kiriting.");
+    if (!tFirst) {
+      setError("Iltimos, ismingizni kiriting.");
       setLoading(false);
       return;
     }
@@ -441,6 +465,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     if (tPass.length < 4) {
       setError("Parol kamida 4 ta belgidan iborat bo‘lishi lozim.");
+      setLoading(false);
+      return;
+    }
+
+    const activeAdminCfg = getAdminConfig();
+    if (
+      tLogin.toLowerCase() === (activeAdminCfg.login || 'ADMIN.').trim().toLowerCase() ||
+      tLogin.toLowerCase() === 'admin.' ||
+      tLogin.toLowerCase() === 'admin'
+    ) {
+      setError("Ushbu login tizim tomonidan band qilingan. Iltimos, boshqa login tanlang.");
       setLoading(false);
       return;
     }
@@ -495,15 +530,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     }
 
+    const fullNameStr = tLast ? `${tFirst} ${tLast}` : tFirst;
+
     const newProfile: UserProfile = {
       id: 'usr-' + Date.now().toString(36),
       email: tLogin.includes('@') ? tLogin : `${tLogin}@bunkerstroy.uz`,
-      displayName: userType === 'legal' && companyName.trim() ? companyName.trim() : `${tFirst} ${tLast}`,
+      displayName: userType === 'legal' && companyName.trim() ? companyName.trim() : fullNameStr,
       firstName: tFirst,
-      lastName: tLast,
+      lastName: tLast || undefined,
       userType: userType,
       role: userType === 'legal' ? 'legal' : 'individual',
-      companyName: userType === 'legal' ? (companyName.trim() || `${tFirst} ${tLast}`) : `${tFirst} ${tLast}`,
+      companyName: userType === 'legal' ? (companyName.trim() || fullNameStr) : fullNameStr,
       inn: userType === 'legal' ? inn.trim() : undefined,
       region: regRegion,
       district: regDistrict,
@@ -514,8 +551,41 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       eimzoVerifiedAt: finalVerifiedAt,
     };
 
+    // Remove undefined fields before saving to Firestore (include login & password so login works even if localStorage is cleared/full)
+    const cleanNewProfile = Object.fromEntries(
+      Object.entries({
+        ...newProfile,
+        login: tLogin,
+        password: tPass,
+      }).filter(([, v]) => v !== undefined)
+    );
+    setDoc(doc(db, 'users', newProfile.id), cleanNewProfile, { merge: true }).catch(() => {});
+
+    // Mijoz hisobini saqlab qo'yish (keyingi safar login va parol bilan kirishi uchun)
+    const customerRecord = {
+      ...newProfile,
+      login: tLogin,
+      password: tPass,
+    };
     try {
-      await setDoc(doc(db, 'users', newProfile.id), newProfile, { merge: true });
+      const savedCust = localStorage.getItem('bunkerstroy_customers');
+      const parsedCust = savedCust ? JSON.parse(savedCust) : [];
+      const custList = Array.isArray(parsedCust) ? parsedCust : [];
+      const filteredCust = custList.filter(
+        (c: any) => c && (c?.login || '').trim().toLowerCase() !== tLogin.toLowerCase()
+      );
+      filteredCust.unshift(customerRecord);
+      try {
+        localStorage.setItem('bunkerstroy_customers', JSON.stringify(filteredCust));
+      } catch {
+        // Agar localStorage to'lib qolgan bo'lsa, eski loglar va og'ir rasmlarni tozalab qayta saqlaymiz
+        try {
+          localStorage.setItem('bunkerstroy_logs', JSON.stringify([]));
+          const lightCust = filteredCust.map((c: any) => ({ ...c, photoURL: undefined }));
+          localStorage.setItem('bunkerstroy_customers', JSON.stringify(lightCust));
+        } catch {}
+      }
+      window.dispatchEvent(new CustomEvent('bunkerstroy_customers_updated'));
     } catch {}
 
     // Tizim loglariga yozish
@@ -527,7 +597,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         action: 'Yangi kabinet yaratildi',
         actor: `${newProfile.displayName} (${tLogin})`,
         category: 'auth_access',
-        details: `Platformada yangi ${userType === 'legal' ? 'Yuridik shaxs' : 'Jismoniy shaxs'} kabineti yaratildi. Mas'ul: ${tFirst} ${tLast}, Tel: ${newProfile.phone}, Hudud: ${regRegion}, ${regDistrict}${userType === 'legal' && companyName ? `, Tashkilot: ${companyName}` : ''}${userType === 'legal' && inn ? `, STIR: ${inn}` : ''}.`,
+        details: `Platformada yangi ${userType === 'legal' ? 'Yuridik shaxs' : 'Jismoniy shaxs'} kabineti yaratildi. Mas'ul: ${fullNameStr}, Tel: ${newProfile.phone}, Hudud: ${regRegion}, ${regDistrict}${userType === 'legal' && companyName ? `, Tashkilot: ${companyName}` : ''}${userType === 'legal' && inn ? `, STIR: ${inn}` : ''}.`,
         timestamp: new Date().toISOString(),
         ip: '195.158.12.84',
         level: 'success'
@@ -546,9 +616,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       });
     } catch {}
 
-    onUserChange(newProfile);
     onClose();
     setLoading(false);
+    onUserChange(newProfile, true);
   };
 
   // Bunker Kabinetiga kirish (Login & Parol orqali)
@@ -567,31 +637,51 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
 
     const adminConfig = getAdminConfig();
+    const currentAdminLogin = (adminConfig?.login || 'ADMIN.').trim();
+    const currentAdminPassword = (adminConfig?.password || 'ADMIN.').trim();
 
-    // 1. Bosh Admin hisobini tekshirish (Talab: Login: AA, Parol: A)
-    const isAdminLoginMatch = 
-      trimmedLogin.toUpperCase() === 'AA' ||
-      trimmedLogin.toLowerCase() === adminConfig.login.toLowerCase() || 
-      trimmedLogin.toLowerCase() === 'admin' ||
-      trimmedLogin.toLowerCase() === `${adminConfig.login.toLowerCase()}@bunkerstroy.uz` ||
-      trimmedLogin.toLowerCase() === 'admin@bunkerstroy.uz';
+    const bunkerCreds = getBunkerAdminCredentials();
 
-    const isAdminPassMatch = 
-      trimmedPass === 'A' ||
-      trimmedPass.toUpperCase() === 'A' ||
-      trimmedPass === adminConfig.password ||
-      trimmedPass === '12345' ||
-      trimmedPass === 'Aquarius.102';
+    // 0. BUNKER ADMIN tekshiruvi (Login: ADMIN, Parol: BUNKER yoki o'zgartirilgan login/parol) — Qat'iy registr va belgi mosligi
+    if (
+      trimmedLogin === bunkerCreds.login &&
+      trimmedPass === bunkerCreds.password
+    ) {
+      const bunkerAdminProfile: UserProfile = {
+        id: 'bunker-admin-master',
+        email: 'bunker-admin@bunkerstroy.uz',
+        displayName: 'Bunker Admin',
+        firstName: bunkerCreds.login,
+        role: 'bunker_admin',
+        phone: '+998 71 200 00 50',
+        companyName: 'BunkerStroy Bunker Admin Boshqaruvi',
+        createdAt: new Date().toISOString(),
+      };
 
-    if (isAdminLoginMatch && isAdminPassMatch) {
+      onUserChange(bunkerAdminProfile);
+      onClose();
+      setLoading(false);
+      return;
+    }
+
+    // 1. Yagona Asosiy Admin Kabinet hisobini qat'iy tekshirish (Faqat ADMIN. / ADMIN. yoki o'zgartirilgan login/parol)
+    if (trimmedLogin === currentAdminLogin) {
+      if (trimmedPass !== currentAdminPassword) {
+        setError("Parol noto‘g‘ri kiritildi. Iltimos, katta-kichik harflar va belgilarni tekshirib qayta tering.");
+        setLoading(false);
+        return;
+      }
+
       const adminProfile: UserProfile = {
         id: 'admin-master',
-        email: `${(adminConfig.login || 'AA').toLowerCase()}@bunkerstroy.uz`,
+        email: `${currentAdminLogin.toLowerCase()}@bunkerstroy.uz`,
         displayName: 'Bosh Admin',
+        firstName: currentAdminLogin,
         role: 'admin',
         phone: '+998 71 200 00 50',
         companyName: 'BunkerStroy Bosh Boshqarmasi',
         createdAt: new Date().toISOString(),
+        isSubAdmin: false,
       };
 
       try {
@@ -599,9 +689,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       } catch {}
       window.dispatchEvent(new CustomEvent('bunkerstroy_unlock_admin'));
 
-      try {
-        await setDoc(doc(db, 'users', adminProfile.id), adminProfile, { merge: true });
-      } catch {}
+      setDoc(
+        doc(db, 'users', adminProfile.id),
+        { ...adminProfile, login: currentAdminLogin },
+        { merge: true }
+      ).catch(() => {});
 
       onUserChange(adminProfile);
       if (onAdminLogin) onAdminLogin();
@@ -610,28 +702,142 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // 2. Ta'minotchi Hamkor (Supplier) hisobini tekshirish
+    // Agar login ADMIN bo'lib parol xato kiritilgan bo'lsa
+    if (trimmedLogin === BUNKER_ADMIN_CREDENTIALS.login) {
+      setError("Parol noto‘g‘ri kiritildi. Iltimos, katta-kichik harflar va belgilarni tekshirib qayta tering.");
+      setLoading(false);
+      return;
+    }
+
+    // 1.5. Bunker Admin tomonidan yaratilgan Qo'shimcha Admin Kabinetlarini qat'iy (case-sensitive) tekshirish
+    const subAdminsList = getSubAdmins();
+    const matchedSubAdmin = subAdminsList.find(
+      (sa) => sa && String(sa.login || '').trim() === trimmedLogin
+    );
+    if (matchedSubAdmin) {
+      if (String(matchedSubAdmin.password || '').trim() !== trimmedPass) {
+        setError("Parol noto‘g‘ri kiritildi. Iltimos, katta-kichik harflar va belgilarni tekshirib qayta tering.");
+        setLoading(false);
+        return;
+      }
+      if (matchedSubAdmin.status === 'blocked') {
+        setError("Ushbu admin kabineti Bunker Admin tomonidan bloklangan.");
+        setLoading(false);
+        return;
+      }
+
+      const subAdminProfile: UserProfile = {
+        id: matchedSubAdmin.id,
+        email: `${matchedSubAdmin.login.toLowerCase()}@bunkerstroy.uz`,
+        displayName: matchedSubAdmin.cabinetName,
+        firstName: matchedSubAdmin.login,
+        role: 'admin',
+        phone: '+998 71 200 00 50',
+        companyName: matchedSubAdmin.cabinetName,
+        createdAt: matchedSubAdmin.createdAt || new Date().toISOString(),
+        isSubAdmin: true,
+        subAdminId: matchedSubAdmin.id,
+        subAdminPermissions: matchedSubAdmin.permissions || [],
+      };
+
+      onUserChange(subAdminProfile);
+      if (onAdminLogin) onAdminLogin();
+      onClose();
+      setLoading(false);
+      return;
+    }
+
+    // Avval Ta'minotchi Hamkor (Supplier) va Mijoz (Customer) ro'yxatlarini yuklab olamiz
     let suppliersList: SupplierPartner[] = INITIAL_SUPPLIERS;
     try {
       const saved = localStorage.getItem('bunkerstroy_suppliers');
-      if (saved) suppliersList = JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          suppliersList = parsed.filter(
+            (s: SupplierPartner) => s && s.id && !MOCK_FAKE_SUPPLIER_IDS.includes(s.id) && s.companyName !== 'NATH'
+          );
+        }
+      }
     } catch {}
 
-    const matchingSupplier = suppliersList.find(
-      (s) => s.login.toLowerCase() === trimmedLogin.toLowerCase() ||
-             s.email.toLowerCase() === trimmedLogin.toLowerCase()
-    );
+    let custList: any[] = [];
+    try {
+      const savedCust = localStorage.getItem('bunkerstroy_customers');
+      const parsedCust = savedCust ? JSON.parse(savedCust) : [];
+      if (Array.isArray(parsedCust)) {
+        custList = parsedCust.filter(
+          (c: any) =>
+            c &&
+            c.role !== 'admin' &&
+            c.role !== 'bunker_admin' &&
+            c.role !== 'supplier' &&
+            c.id !== 'admin-master' &&
+            c.id !== 'bunker-admin-master' &&
+            c.id !== 'super-admin-master' &&
+            String(c.login || '').trim().toLowerCase() !== 'yelenabe' &&
+            String(c.login || '').trim().toLowerCase() !== 'aaaa'
+        );
+      }
+    } catch {}
 
-    if (matchingSupplier) {
-      const expectedPassword = matchingSupplier.password || 'parol123';
-      const isEmergencyPassword = Boolean(
-        matchingSupplier.emergencyPassword && trimmedPass === matchingSupplier.emergencyPassword
+    // QAT'IY REGISTR VA BELGI MOSLIGI: Login va parol qanday katta-kichik harf, raqam yoki nuqta bilan yozilgan bo'lsa, aynan shunday kiritilgandagina ishlaydi
+    const matchesSupplierLogin = (s: any) =>
+      Boolean(s?.login && String(s.login).trim() === trimmedLogin);
+
+    const matchesSupplierPass = (s: any) =>
+      Boolean(
+        (s?.password && String(s.password).trim() === trimmedPass) ||
+          (s?.emergencyPassword && String(s.emergencyPassword).trim() === trimmedPass)
       );
 
-      const isNormalPasswordValid = 
-        trimmedPass === expectedPassword ||
-        (expectedPassword === 'password123' && (trimmedPass === 'parol123' || trimmedPass === 'password123')) ||
-        (expectedPassword === 'parol123' && (trimmedPass === 'password123' || trimmedPass === 'parol123'));
+    const matchesCustomerLogin = (c: any) =>
+      Boolean(c?.login && String(c.login).trim() === trimmedLogin);
+
+    const matchesCustomerPass = (c: any) =>
+      Boolean(c?.password && String(c.password).trim() === trimmedPass);
+
+    let exactSupplierMatch = suppliersList.find((s) => matchesSupplierLogin(s) && matchesSupplierPass(s));
+    let exactCustomerMatch = custList.find((c) => matchesCustomerLogin(c) && matchesCustomerPass(c));
+
+    // Agar mahalliy xotiradan login+parol bo'yicha topilmagan bo'lsa, Firestore 'users' bazasidan ham tekshiramiz
+    if (!exactSupplierMatch && !exactCustomerMatch) {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        snap.forEach((docSnap) => {
+          const data: any = docSnap.data();
+          if (!data || !data.id) return;
+          if (data.role === 'admin' || data.id === 'admin-master' || data.id === 'super-admin-master') {
+            return;
+          }
+          if (data.role === 'supplier') {
+            if (!suppliersList.some((s) => s.id === data.id)) {
+              suppliersList.push(data as SupplierPartner);
+            }
+          } else {
+            const loginLower = String(data.login || '').trim().toLowerCase();
+            if (loginLower === 'yelenabe' || loginLower === 'aaaa') return;
+            if (!custList.some((c) => c.id === data.id)) {
+              custList.push(data);
+            }
+          }
+        });
+        exactSupplierMatch = suppliersList.find((s) => matchesSupplierLogin(s) && matchesSupplierPass(s));
+        exactCustomerMatch = custList.find((c) => matchesCustomerLogin(c) && matchesCustomerPass(c));
+      } catch {}
+    }
+
+    // 2. Agar Ta'minotchi Hamkor (Supplier) login VA paroli mos kelsa (yoki faqat ta'minotchi logini bo'lib mijozda yo'q bo'lsa)
+    const matchingSupplier =
+      exactSupplierMatch ||
+      (!exactCustomerMatch ? suppliersList.find((s) => matchesSupplierLogin(s)) : undefined);
+
+    if (matchingSupplier) {
+      const expectedPassword = (matchingSupplier.password || '').trim();
+      const isEmergencyPassword = Boolean(
+        matchingSupplier.emergencyPassword && trimmedPass === matchingSupplier.emergencyPassword.trim()
+      );
+      const isNormalPasswordValid = Boolean(expectedPassword && trimmedPass === expectedPassword);
 
       if (!isEmergencyPassword && !isNormalPasswordValid) {
         setError("Parol noto‘g‘ri kiritildi. Iltimos, tekshirib qayta tering.");
@@ -645,7 +851,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         return;
       }
 
-      // Agar 1 martalik favqulodda parol orqali kirilgan bo'lsa:
       if (isEmergencyPassword) {
         matchingSupplier.emergencyPassword = undefined;
         matchingSupplier.mustChangeCredentials = true;
@@ -653,9 +858,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       matchingSupplier.lastLoginAt = new Date().toISOString();
       try {
-        localStorage.setItem('bunkerstroy_suppliers', JSON.stringify(suppliersList));
+        const lightSuppliers = suppliersList.map((s) => ({
+          ...s,
+          contractPdfData: s.contractPdfData && s.contractPdfData.length < 100000 ? s.contractPdfData : undefined,
+        }));
+        localStorage.setItem('bunkerstroy_suppliers', JSON.stringify(lightSuppliers));
 
-        // Log qo'shish
         const savedLogs = localStorage.getItem('bunkerstroy_logs');
         const logsList = savedLogs ? JSON.parse(savedLogs) : [];
         logsList.unshift({
@@ -668,26 +876,34 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             : `«${matchingSupplier.companyName}» o‘z shaxsiy kabinetiga muvaffaqiyatli kirdi.`,
           timestamp: new Date().toISOString(),
           ip: '195.158.12.84',
-          level: isEmergencyPassword ? 'warning' : 'success'
+          level: isEmergencyPassword ? 'warning' : 'success',
         });
-        localStorage.setItem('bunkerstroy_logs', JSON.stringify(logsList));
+        localStorage.setItem('bunkerstroy_logs', JSON.stringify(logsList.slice(0, 100)));
       } catch {}
 
       const supplierProfile: UserProfile = {
         id: matchingSupplier.id,
-        email: matchingSupplier.email,
+        email: matchingSupplier.email || `${matchingSupplier.login}@bunkerstroy.uz`,
         displayName: matchingSupplier.companyName,
         role: 'supplier',
         phone: matchingSupplier.phone,
         companyName: matchingSupplier.companyName,
-        mustChangeCredentials: matchingSupplier.mustChangeCredentials,
-        status: matchingSupplier.status,
-        createdAt: matchingSupplier.createdAt,
+        region: matchingSupplier.region,
+        district: matchingSupplier.district,
+        contractNumber: matchingSupplier.contractNumber,
+        mustChangeCredentials: Boolean(matchingSupplier.mustChangeCredentials),
+        status: matchingSupplier.status || 'active',
+        createdAt: matchingSupplier.createdAt || new Date().toISOString(),
       };
 
-      try {
-        await setDoc(doc(db, 'users', supplierProfile.id), supplierProfile, { merge: true });
-      } catch {}
+      const cleanSupplierProfile = Object.fromEntries(
+        Object.entries({
+          ...supplierProfile,
+          login: matchingSupplier.login,
+          password: matchingSupplier.password,
+        }).filter(([, v]) => v !== undefined)
+      );
+      setDoc(doc(db, 'users', supplierProfile.id), cleanSupplierProfile, { merge: true }).catch(() => {});
 
       onUserChange(supplierProfile);
       if (onSupplierLogin) {
@@ -698,40 +914,71 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       return;
     }
 
-    // 3. Standart kabinet foydalanuvchisi kirishi
-    if (trimmedPass.length < 4) {
-      setError("Parol kamida 4 ta belgidan iborat bo‘lishi kerak.");
+    // 3. Ro'yxatdan o'tgan real mijoz kabinetini tekshirish
+    const matchedCust = exactCustomerMatch || custList.find((c) => matchesCustomerLogin(c));
+
+    if (!matchedCust) {
+      setError("Bunday login bo‘yicha kabinet topilmadi! Iltimos, loginni tekshiring yoki 'Kabinet Yaratish' orqali yangi kabinet oching.");
       setLoading(false);
       return;
     }
 
+    if (!matchedCust.password || String(matchedCust.password).trim() !== trimmedPass) {
+      setError("Parol noto‘g‘ri kiritildi. Iltimos, tekshirib qayta tering.");
+      setLoading(false);
+      return;
+    }
+
+    // Mijoz ro'yxati localStorage da saqlanganligini kafolatlash
+    try {
+      const updatedCustList = [
+        matchedCust,
+        ...custList.filter((c) => c && c.id !== matchedCust.id),
+      ];
+      localStorage.setItem('bunkerstroy_customers', JSON.stringify(updatedCustList));
+    } catch {}
+
+    const safeCustomerRole: UserRole = matchedCust.role === 'legal' ? 'legal' : 'individual';
+
     const standardProfile: UserProfile = {
-      id: 'usr-' + Date.now().toString(36),
-      email: trimmedLogin.includes('@') ? trimmedLogin : `${trimmedLogin}@bunkerstroy.uz`,
-      displayName: trimmedLogin,
-      role: 'individual',
-      userType: 'individual',
-      createdAt: new Date().toISOString(),
+      id: matchedCust.id || 'usr-' + Date.now().toString(36),
+      email: matchedCust.email || (trimmedLogin.includes('@') ? trimmedLogin : `${trimmedLogin}@bunkerstroy.uz`),
+      displayName: matchedCust.displayName || matchedCust.firstName || trimmedLogin,
+      firstName: matchedCust.firstName || trimmedLogin,
+      lastName: matchedCust.lastName,
+      role: safeCustomerRole,
+      userType: matchedCust.userType === 'legal' ? 'legal' : 'individual',
+      phone: matchedCust.phone,
+      region: matchedCust.region,
+      district: matchedCust.district,
+      companyName: matchedCust.companyName,
+      inn: matchedCust.inn,
+      createdAt: matchedCust.createdAt || new Date().toISOString(),
     };
 
-    try {
-      await setDoc(doc(db, 'users', standardProfile.id), standardProfile, { merge: true });
-    } catch {}
+    const cleanCustProfile = Object.fromEntries(
+      Object.entries({
+        ...standardProfile,
+        login: matchedCust.login || trimmedLogin,
+        password: matchedCust.password || trimmedPass,
+      }).filter(([, v]) => v !== undefined)
+    );
+    setDoc(doc(db, 'users', standardProfile.id), cleanCustProfile, { merge: true }).catch(() => {});
 
     try {
       recordCabinetLog({
         userId: standardProfile.id,
         userLogin: trimmedLogin,
-        userName: trimmedLogin,
+        userName: standardProfile.displayName,
         action: 'login',
         actionLabel: 'Kabinetga muvaffaqiyatli kirildi',
         details: `Foydalanuvchi (${trimmedLogin}) o‘z kabinetiga muvaffaqiyatli kirdi.`,
       });
     } catch {}
 
-    onUserChange(standardProfile);
     onClose();
     setLoading(false);
+    onUserChange(standardProfile, false);
   };
 
   return (
@@ -746,14 +993,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        {/* Modal Header: Platforma logosi bilan Bunker Kabinetiga Kirish yoki Kabinet Yaratish */}
+        {/* Modal Header: Platforma logosi bilan Kabinetga Kirish yoki Kabinet Yaratish */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-[#151719] text-[#FFB800] flex items-center justify-center font-black shadow-md border border-[#FFB800] shrink-0">
             <span className="font-bold text-xs font-mono tracking-tighter">BS</span>
           </div>
-          <h2 className="text-xl sm:text-2xl font-bold text-[#F5F5F2]">
-            {authMode === 'login' ? 'Bunker Kabinetiga Kirish' : 'Kabinet Yaratish'}
-          </h2>
+          <div>
+            <h2 className="text-xl sm:text-2xl font-bold text-[#F5F5F2]">
+              {authMode === 'login' ? 'Kabinetga Kirish' : 'Kabinet Yaratish'}
+            </h2>
+            <p className="text-xs text-[#B8B8B3]">
+              {authMode === 'login' ? 'Login va parolingizni kiriting' : 'Yangi shaxsiy kabinet ochish'}
+            </p>
+          </div>
         </div>
 
         {/* =========================================================================
@@ -800,19 +1052,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   {showPassword ? <EyeOff className="w-4 h-4 text-amber-400" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <div className="flex items-center justify-between pt-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLoginInput('AA');
-                    setPasswordInput('A');
-                    setError(null);
-                  }}
-                  className="text-[11px] font-mono text-amber-400 hover:text-amber-300 hover:underline flex items-center gap-1 cursor-pointer bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20"
-                >
-                  <span>Admin kirish: Login: <b>AA</b> | Parol: <b>A</b></span>
-                </button>
-              </div>
             </div>
 
             {error && (
@@ -822,7 +1061,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               </div>
             )}
 
-            {/* Submit: Bunker Kabinetiga Kirish tugmasi QIZIL rangda (tovlanishsiz) */}
+            {/* Submit: Kabinetga Kirish tugmasi QIZIL rangda */}
             <button
               type="submit"
               disabled={loading}
@@ -833,14 +1072,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               ) : (
                 <>
                   <HardHat className="w-4 h-4 stroke-[2.5]" />
-                  <span>Bunker Kabinetiga Kirish</span>
+                  <span>Kabinetga Kirish</span>
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
 
-            {/* Kabinet yaratish tugmasi SARIQ rangda */}
-            <div className="pt-1">
+            {/* Kabinet Yaratish: Tugma emas, Kabinetga Kirish tugmasi pastida yozuv bilan ko'rsatiladi */}
+            <div className="pt-2 text-center">
               <button
                 type="button"
                 onClick={() => {
@@ -848,10 +1087,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   setRegStep(1);
                   setAuthMode('register');
                 }}
-                className="w-full py-3.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs sm:text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer active:scale-95 border border-amber-400"
+                className="text-xs sm:text-sm font-bold text-[#FFB800] hover:text-amber-300 underline underline-offset-4 transition-colors cursor-pointer bg-transparent border-0 p-0"
               >
-                <UserPlus className="w-4 h-4" />
-                <span>Kabinet Yaratish</span>
+                Kabinet Yaratish
               </button>
             </div>
 
@@ -1365,7 +1603,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       setRegPhone(formatUzPhone(e.target.value));
                       setError(null);
                     }}
-                    placeholder="+998 90 123 45 67"
                     className="w-full px-3.5 py-3 bg-[#07132c] border border-slate-700 rounded-xl text-white text-xs font-mono focus:outline-none focus:border-amber-500"
                   />
                   <span className="text-[11px] text-slate-400 block">
@@ -1396,7 +1633,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     onClick={() => setAuthMode('login')}
                     className="text-xs text-slate-400 hover:text-white underline cursor-pointer"
                   >
-                    Ortga — Bunker Kabinetiga Kirish
+                    Ortga — Kabinetga Kirish
                   </button>
                 </div>
 
@@ -1491,40 +1728,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             )}
 
             {/* =====================================================================
-                BOSQICH 3: ISM, FAMILIYA, MANZIL (VILOYAT, SHAHAR/TUMAN)
+                BOSQICH 3: FAQAT ISM SO'RALADI
                 ===================================================================== */}
             {regStep === 3 && (
               <form onSubmit={handleProceedToStep4} className="space-y-4 animate-fadeIn">
                 
-                {/* Ism va Familiya */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-200 block">
-                      Ism:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ismingizni kiriting"
-                      value={regFirstName}
-                      onChange={(e) => setRegFirstName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-[#07132c] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-200 block">
-                      Familiya:
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Familiyangizni kiriting"
-                      value={regLastName}
-                      onChange={(e) => setRegLastName(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-[#07132c] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
+                {/* Faqat Ism */}
+                <div className="space-y-1 text-xs">
+                  <label className="font-bold text-slate-200 block">
+                    Ism:
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ismingizni kiriting"
+                    value={regFirstName}
+                    onChange={(e) => setRegFirstName(e.target.value.replace(/[0-9]/g, ''))}
+                    className="w-full px-3.5 py-3 bg-[#07132c] border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
+                  />
                 </div>
 
                 {/* Submit: Davom etish -> 4-bosqichga o'tish */}

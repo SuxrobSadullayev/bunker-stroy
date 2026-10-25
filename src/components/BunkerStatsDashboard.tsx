@@ -1,28 +1,22 @@
-import React, { useState } from 'react';
-import { 
-  TrendingUp, 
-  ArrowUpRight, 
-  Wallet, 
-  Package, 
-  Truck, 
-  Globe, 
-  ShieldCheck, 
-  ChevronRight, 
-  BarChart3, 
-  Layers, 
-  MapPin, 
-  Calendar, 
-  ArrowRight,
-  HardHat,
-  Phone,
-  Mail,
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Wallet,
+  BarChart3,
+  MapPin,
+  Calendar,
+  Users,
+  PieChart,
   Building2,
-  CheckCircle2,
-  ExternalLink,
-  Sparkles,
-  RefreshCw,
-  ShoppingCart
+  Store,
+  X,
 } from 'lucide-react';
+import { Product, Order, SupplierPartner, UserProfile } from '../types';
+import { FinancialTransaction } from '../data/bunkerFinanceData';
+import {
+  MOCK_FAKE_PRODUCT_IDS,
+  MOCK_FAKE_SUPPLIER_IDS,
+} from '../data/mockData';
+import { isOrderAfterReset, isOnlinePlatformOrder } from '../data/supplierReportsData';
 
 interface BunkerStatsDashboardProps {
   onNavigateToCatalog: () => void;
@@ -34,438 +28,1151 @@ interface BunkerStatsDashboardProps {
   cartCount?: number;
 }
 
-type PeriodFilter = 'all' | 'today' | 'week' | 'month';
+type PeriodFilter = 'day' | 'week' | 'month' | 'range' | null;
 
-export const BunkerStatsDashboard: React.FC<BunkerStatsDashboardProps> = ({
-  onNavigateToCatalog,
-  onNavigateToLogistics,
-  onNavigateToGlobal,
-  onNavigateToAdmin,
-  onOpenCart,
-  onOpenAuth,
-  cartCount = 0,
-}) => {
-  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>('all');
+const UZBEKISTAN_REGIONS = [
+  { key: 'Toshkent shahri', match: ['toshkent sh', 'tashkent city', 'toshkent shahri'], color: 'bg-[#FFB800]', hex: '#FFB800' },
+  { key: 'Toshkent viloyati', match: ['toshkent vil', 'chirchiq', 'olmaliq', 'angren', 'bekobod', 'qibray', 'zangiota'], color: 'bg-blue-500', hex: '#3B82F6' },
+  { key: 'Samarqand viloyati', match: ['samarqand', 'urgut', 'kattaqo'], color: 'bg-emerald-500', hex: '#10B981' },
+  { key: 'Farg‘ona viloyati', match: ['farg', 'qo‘qon', 'qoqon', 'marg‘ilon', 'margilon'], color: 'bg-amber-400', hex: '#FBBF24' },
+  { key: 'Andijon viloyati', match: ['andijon', 'asaka', 'shahrixon'], color: 'bg-purple-500', hex: '#A855F7' },
+  { key: 'Namangan viloyati', match: ['namangan', 'chust', 'pop'], color: 'bg-cyan-400', hex: '#22D3EE' },
+  { key: 'Buxoro viloyati', match: ['buxoro', 'g‘ijduvon', 'kogon'], color: 'bg-rose-500', hex: '#F43F5E' },
+  { key: 'Qashqadaryo viloyati', match: ['qashqadaryo', 'qarshi', 'shahrisabz'], color: 'bg-indigo-400', hex: '#818CF8' },
+  { key: 'Surxondaryo viloyati', match: ['surxondaryo', 'termiz', 'denov'], color: 'bg-teal-400', hex: '#2DD4BF' },
+  { key: 'Navoiy viloyati', match: ['navoiy', 'zarafshon', 'karmana'], color: 'bg-orange-400', hex: '#FB923C' },
+  { key: 'Jizzax viloyati', match: ['jizzax', 'zomin'], color: 'bg-lime-400', hex: '#A3E635' },
+  { key: 'Sirdaryo viloyati', match: ['sirdaryo', 'guliston', 'yangiyer'], color: 'bg-pink-400', hex: '#F472B6' },
+  { key: 'Xorazm viloyati', match: ['xorazm', 'urganch', 'xiva'], color: 'bg-sky-400', hex: '#38BDF8' },
+  { key: 'Qoraqalpog‘iston Resp.', match: ['qoraqalpog', 'nukus', 'qo‘ng‘irot', 'beruniy'], color: 'bg-violet-400', hex: '#A78BFA' },
+];
+
+const cleanCompanyName = (val?: string): string => {
+  if (!val) return '';
+  return val
+    .toLowerCase()
+    .replace(/[«»""''`‘’ʻʼ]/g, '')
+    .replace(/mas\s*uliyati\s*cheklangan\s*jamiyati/gi, '')
+    .replace(/\bmchj\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Helper to match region string to one of the 14 Uzbekistan regions
+const resolveRegionKey = (rawRegion?: string, rawExtra?: string): string | null => {
+  const combined = `${rawRegion || ''} ${rawExtra || ''}`.toLowerCase().trim();
+  if (!combined) return null;
+
+  for (const reg of UZBEKISTAN_REGIONS) {
+    if (reg.key.toLowerCase() === (rawRegion || '').toLowerCase().trim()) {
+      return reg.key;
+    }
+    if (reg.match.some((kw) => combined.includes(kw))) {
+      return reg.key;
+    }
+  }
+  return null;
+};
+
+export const BunkerStatsDashboard: React.FC<BunkerStatsDashboardProps> = () => {
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodFilter>(null);
+  const [startDate, setStartDate] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().slice(0, 10);
+  });
+  const [endDate, setEndDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [isRangeModalOpen, setIsRangeModalOpen] = useState(false);
   const [activeBarHover, setActiveBarHover] = useState<number | null>(null);
 
-  // Period-adjusted values (exact numbers based on the user's specification for all-time, with logical proportions for other periods)
-  const getStatsByPeriod = () => {
-    switch (selectedPeriod) {
-      case 'today':
-        return {
-          totalTurnover: '58,400,000 so‘m',
-          turnoverGrowth: '+4.2% kechagidan',
-          netProfit: '12,848,000 so‘m',
-          profitMargin: '22.0%',
-          income: '16,350,000 so‘m',
-          stockTons: '4,840 tonna',
-          stockPositions: '12 xil tovar pozitsiyasi',
-          heavyFleet: '4 ta Og‘ir Texnika',
-          completedTrips: '8 ta yakunlangan reys',
-          globalFactories: '5 Xalqaro Zavod',
-          globalContract: '136,200 t/yil shartnoma',
-          returnedCount: '0 ta (0%)',
-          returnedCert: 'Laboratoriya tekshiruvi: 100% sertifikatlangan',
-        };
-      case 'week':
-        return {
-          totalTurnover: '342,000,000 so‘m',
-          turnoverGrowth: '+12.6% o‘tgan haftadan',
-          netProfit: '75,240,000 so‘m',
-          profitMargin: '22.0%',
-          income: '95,760,000 so‘m',
-          stockTons: '4,840 tonna',
-          stockPositions: '12 xil tovar pozitsiyasi',
-          heavyFleet: '4 ta Og‘ir Texnika',
-          completedTrips: '34 ta yakunlangan reys',
-          globalFactories: '5 Xalqaro Zavod',
-          globalContract: '136,200 t/yil shartnoma',
-          returnedCount: '0 ta (0%)',
-          returnedCert: 'Laboratoriya tekshiruvi: 100% sertifikatlangan',
-        };
-      case 'month':
-        return {
-          totalTurnover: '1,485,000,000 so‘m',
-          turnoverGrowth: '+18.4% o‘sish sur‘ati o‘tgan oydan',
-          netProfit: '326,700,000 so‘m',
-          profitMargin: '22.0%',
-          income: '415,800,000 so‘m',
-          stockTons: '4,840 tonna',
-          stockPositions: '12 xil tovar pozitsiyasi',
-          heavyFleet: '4 ta Og‘ir Texnika',
-          completedTrips: '146 ta yakunlangan reys',
-          globalFactories: '5 Xalqaro Zavod',
-          globalContract: '136,200 t/yil shartnoma',
-          returnedCount: '0 ta (0%)',
-          returnedCert: 'Laboratoriya tekshiruvi: 100% sertifikatlangan',
-        };
-      case 'all':
-      default:
-        return {
-          totalTurnover: '1,485,000,000 so‘m',
-          turnoverGrowth: '+18.4% o‘sish sur‘ati o‘tgan oydan',
-          netProfit: '326,700,000 so‘m',
-          profitMargin: '22.0%',
-          income: '415,800,000 so‘m',
-          stockTons: '4,840 tonna',
-          stockPositions: '12 xil tovar pozitsiyasi',
-          heavyFleet: '4 ta Og‘ir Texnika',
-          completedTrips: '146 ta yakunlangan reys',
-          globalFactories: '5 Xalqaro Zavod',
-          globalContract: '136,200 t/yil shartnoma',
-          returnedCount: '0 ta (0%)',
-          returnedCert: 'Laboratoriya tekshiruvi: 100% sertifikatlangan',
-        };
+  // Real data states synchronized from localStorage & events
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [b2bOrders, setB2bOrders] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<FinancialTransaction[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierPartner[]>([]);
+  const [customers, setCustomers] = useState<UserProfile[]>([]);
+
+  const loadRealData = () => {
+    try {
+      const savedOrders = localStorage.getItem('bunkerstroy_orders');
+      const parsedOrders: Order[] = savedOrders ? JSON.parse(savedOrders) : [];
+      setOrders(
+        Array.isArray(parsedOrders)
+          ? parsedOrders.filter((o) => isOrderAfterReset(o) && isOnlinePlatformOrder(o))
+          : []
+      );
+    } catch {
+      setOrders([]);
+    }
+
+    try {
+      const savedB2b = localStorage.getItem('bunkerstroy_b2b_orders');
+      const parsedB2b: any[] = savedB2b ? JSON.parse(savedB2b) : [];
+      setB2bOrders(Array.isArray(parsedB2b) ? parsedB2b : []);
+    } catch {
+      setB2bOrders([]);
+    }
+
+    try {
+      const savedTx = localStorage.getItem('bunkerstroy_transactions');
+      const parsedTx: FinancialTransaction[] = savedTx ? JSON.parse(savedTx) : [];
+      setTransactions(Array.isArray(parsedTx) ? parsedTx.filter((tx) => isOrderAfterReset(tx)) : []);
+    } catch {
+      setTransactions([]);
+    }
+
+    try {
+      const savedProd = localStorage.getItem('bunkerstroy_products');
+      const parsedProd: Product[] = savedProd ? JSON.parse(savedProd) : [];
+      setProducts(
+        Array.isArray(parsedProd)
+          ? parsedProd.filter((p) => p && p.id && !MOCK_FAKE_PRODUCT_IDS.includes(p.id))
+          : []
+      );
+    } catch {
+      setProducts([]);
+    }
+
+    try {
+      const savedSupp = localStorage.getItem('bunkerstroy_suppliers');
+      const parsedSupp: SupplierPartner[] = savedSupp ? JSON.parse(savedSupp) : [];
+      setSuppliers(
+        Array.isArray(parsedSupp)
+          ? parsedSupp.filter(
+              (s) =>
+                s &&
+                s.id &&
+                s.id.startsWith('supp-') &&
+                !MOCK_FAKE_SUPPLIER_IDS.includes(s.id) &&
+                s.companyName !== 'NATH'
+            )
+          : []
+      );
+    } catch {
+      setSuppliers([]);
+    }
+
+    try {
+      const savedCust = localStorage.getItem('bunkerstroy_customers');
+      const parsedCust: UserProfile[] = savedCust ? JSON.parse(savedCust) : [];
+      const seenKeys = new Set<string>();
+      const validCusts: UserProfile[] = [];
+      if (Array.isArray(parsedCust)) {
+        parsedCust.forEach((u) => {
+          if (!u || !u.id || u.role === 'admin' || u.role === 'supplier') return;
+          const rawName = (u.displayName || `${u.firstName || ''} ${u.lastName || ''}` || u.login || '').trim().toLowerCase();
+          if (
+            rawName === 'adminstrator' ||
+            rawName === 'administrator' ||
+            rawName === 'superadmin' ||
+            rawName === 'bosh admin'
+          ) {
+            return;
+          }
+          const phoneDigits = (u.phone || '').replace(/\D/g, '').slice(-9);
+          const uniqueKey = phoneDigits ? `tel:${phoneDigits}` : `name:${rawName || u.id}`;
+          if (seenKeys.has(uniqueKey)) return;
+          seenKeys.add(uniqueKey);
+          validCusts.push(u);
+        });
+      }
+      setCustomers(validCusts);
+    } catch {
+      setCustomers([]);
     }
   };
 
-  const stats = getStatsByPeriod();
+  useEffect(() => {
+    loadRealData();
+    window.addEventListener('bunkerstroy_finance_updated', loadRealData);
+    window.addEventListener('bunkerstroy_suppliers_updated', loadRealData);
+    window.addEventListener('bunkerstroy_b2b_orders_updated', loadRealData);
+    window.addEventListener('storage', loadRealData);
+    const interval = setInterval(loadRealData, 2500);
+    return () => {
+      window.removeEventListener('bunkerstroy_finance_updated', loadRealData);
+      window.removeEventListener('bunkerstroy_suppliers_updated', loadRealData);
+      window.removeEventListener('bunkerstroy_b2b_orders_updated', loadRealData);
+      window.removeEventListener('storage', loadRealData);
+      clearInterval(interval);
+    };
+  }, []);
 
-  // Monthly turnover dynamic data
-  const monthlyData = [
-    { month: 'Yan', val: 120, display: '120m', full: '120,000,000 so‘m', pct: 40 },
-    { month: 'Fev', val: 145, display: '145m', full: '145,000,000 so‘m', pct: 49 },
-    { month: 'Mar', val: 190, display: '190m', full: '190,000,000 so‘m', pct: 64 },
-    { month: 'Apr', val: 230, display: '230m', full: '230,000,000 so‘m', pct: 78 },
-    { month: 'May', val: 260, display: '260m', full: '260,000,000 so‘m', pct: 88 },
-    { month: 'Iyun', val: 295, display: '295m', full: '295,000,000 so‘m', pct: 100 },
-  ];
+  const formatSum = (n: number) => `${new Intl.NumberFormat('uz-UZ').format(Math.round(n))} so‘m`;
 
-  // Warehouse Category Stock Distribution
-  const warehouseCategories = [
-    {
-      name: 'Sement & Quruq qorishmalar (M400, M500)',
-      amount: '2,450 tonna',
-      percentage: '42%',
-      color: 'bg-[#FFB800]',
-      trackColor: 'bg-[#FFB800]/20',
-      badge: 'Bunker Ombori #1',
-    },
-    {
-      name: 'Metall prokati & Armatura (A500C, Katanka)',
-      amount: '1,120 tonna',
-      percentage: '28%',
-      color: 'bg-blue-500',
-      trackColor: 'bg-blue-500/20',
-      badge: 'Og‘ir Prokat',
-    },
-    {
-      name: 'Devorbop bloklar & G‘isht (Gazoblok, Pishiq)',
-      amount: '850 m³',
-      percentage: '18%',
-      color: 'bg-emerald-500',
-      trackColor: 'bg-emerald-500/20',
-      badge: 'Konstruktiv Bloklar',
-    },
-    {
-      name: 'Issiqlik & Gidroizolyatsiya materiallari',
-      amount: '420 m³',
-      percentage: '12%',
-      color: 'bg-rose-500',
-      trackColor: 'bg-rose-500/20',
-      badge: 'TechnoNIKOL / Penoplast',
-    },
-  ];
+  // Filter orders, B2B orders, and transactions by selected period (null = Umumiy barchasini ko'rsatadi)
+  const { filteredOrders, filteredB2bOrders, filteredTx } = useMemo(() => {
+    if (!selectedPeriod) {
+      return {
+        filteredOrders: orders,
+        filteredB2bOrders: b2bOrders,
+        filteredTx: transactions,
+      };
+    }
 
-  // Logistics Fleet Trips
-  const fleetTrips = [
-    {
-      name: 'Samosval KAMAZ (20t)',
-      status: '100% Shay',
-      trips: '48 ta muvaffaqiyatli reys',
-      volume: '960 tonna',
-      icon: '🚛',
-    },
-    {
-      name: 'Beton Mikser HOWO (10m³)',
-      status: '100% Shay',
-      trips: '35 ta muvaffaqiyatli reys',
-      volume: '350 m³',
-      icon: '🚚',
-    },
-    {
-      name: 'Kran-Manipulyator ISUZU',
-      status: '100% Shay',
-      trips: '22 ta muvaffaqiyatli reys',
-      volume: '110 tonna',
-      icon: '🏗️',
-    },
-    {
-      name: 'Gazel Next Bortli (2.5t)',
-      status: '100% Shay',
-      trips: '41 ta muvaffaqiyatli reys',
-      volume: '85 tonna',
-      icon: '🚐',
-    },
-  ];
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+    const weekAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000;
+    const monthAgo = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0).getTime();
 
-  // Regional Demands
-  const regionalDemands = [
-    { region: 'Toshkent shahri', orders: '154 buyurtma', share: '48%', color: 'bg-[#FFB800]' },
-    { region: 'Toshkent viloyati', orders: '76 buyurtma', share: '24%', color: 'bg-blue-500' },
-    { region: 'Samarqand viloyati', orders: '38 buyurtma', share: '12%', color: 'bg-emerald-500' },
-    { region: 'Farg‘ona vodiysi', orders: '31 buyurtma', share: '10%', color: 'bg-amber-400' },
-    { region: 'Boshqa viloyatlar', orders: '19 buyurtma', share: '6%', color: 'bg-slate-400' },
-  ];
+    const startParts = startDate.split('-').map(Number);
+    const endParts = endDate.split('-').map(Number);
+    const rangeStart =
+      startParts.length === 3
+        ? new Date(startParts[0], startParts[1] - 1, startParts[2], 0, 0, 0, 0).getTime()
+        : new Date(startDate).getTime() || 0;
+    const rangeEnd =
+      endParts.length === 3
+        ? new Date(endParts[0], endParts[1] - 1, endParts[2], 23, 59, 59, 999).getTime()
+        : (new Date(endDate).getTime() || Date.now()) + 24 * 60 * 60 * 1000 - 1;
+
+    const inPeriod = (dateStr?: string) => {
+      if (!dateStr) return false;
+      const t = new Date(dateStr).getTime();
+      if (isNaN(t)) return false;
+      if (selectedPeriod === 'day') return t >= startOfToday && t <= endOfToday;
+      if (selectedPeriod === 'week') return t >= weekAgo && t <= endOfToday;
+      if (selectedPeriod === 'month') return t >= monthAgo && t <= endOfToday;
+      if (selectedPeriod === 'range') return t >= rangeStart && t <= rangeEnd;
+      return true;
+    };
+
+    return {
+      filteredOrders: orders.filter((o) => inPeriod(o.createdAt)),
+      filteredB2bOrders: b2bOrders.filter((bo) => inPeriod(bo.createdAt)),
+      filteredTx: transactions.filter((tx) => inPeriod(tx.date)),
+    };
+  }, [orders, b2bOrders, transactions, selectedPeriod, startDate, endDate]);
+
+  // Helper to check if an order item belongs to a specific supplier (supports STIR, ID, and bilingual company aliases)
+  const doesOrderItemBelongToSupplier = (
+    item: any,
+    matchedProd: Product | undefined,
+    supplier: SupplierPartner,
+    allSuppliers: SupplierPartner[]
+  ): boolean => {
+    if (supplier.id && (item.supplierId === supplier.id || matchedProd?.supplierId === supplier.id)) {
+      return true;
+    }
+    const suppInn = (supplier.inn || '').trim();
+    if (suppInn && (item.supplierInn === suppInn || matchedProd?.supplierInn === suppInn)) {
+      return true;
+    }
+
+    const normalizedComp = cleanCompanyName(supplier.companyName);
+    const fullLowerComp = (supplier.companyName || '').trim().toLowerCase();
+    const aliasNames = new Set<string>(
+      [
+        normalizedComp,
+        fullLowerComp,
+        cleanCompanyName(supplier.companyInfo?.companyName),
+        cleanCompanyName(supplier.companyInfo?.shortName),
+      ].filter(Boolean)
+    );
+
+    if (
+      suppInn === '313086503' ||
+      normalizedComp.includes('national ai technology') ||
+      normalizedComp.includes('insonlar uchun milliy ai')
+    ) {
+      aliasNames.add('national ai technology for humans');
+      aliasNames.add('insonlar uchun milliy ai texnologiyasi');
+      aliasNames.add('insonlar uchun milliy ai technology');
+    }
+
+    const rawSupplierName =
+      item.supplierName ||
+      item?.product?.supplierName ||
+      matchedProd?.supplierName ||
+      '';
+    const itemSuppFull = rawSupplierName.trim().toLowerCase();
+    const itemSuppClean = cleanCompanyName(rawSupplierName);
+
+    if (itemSuppClean || itemSuppFull) {
+      for (const alias of aliasNames) {
+        if (
+          alias &&
+          (itemSuppClean === alias ||
+            itemSuppFull === alias ||
+            (alias.length >= 3 && itemSuppClean.includes(alias)) ||
+            (itemSuppClean.length >= 3 && alias.includes(itemSuppClean)))
+        ) {
+          return true;
+        }
+      }
+    }
+
+    const otherSuppliersCleanNames = new Set<string>(
+      allSuppliers
+        .filter((s) => s.id !== supplier.id && cleanCompanyName(s.companyName) !== normalizedComp)
+        .map((s) => cleanCompanyName(s.companyName))
+        .filter(Boolean)
+    );
+
+    if (allSuppliers.length === 1 && !otherSuppliersCleanNames.has(itemSuppClean)) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // 1. KABINETLAR SONI, TA'MINOTCHILAR ULUSHI, BUNKER STROY ULUSHI VA HAR BIR KABINETNING SAVDO AYLANMASI
+  const supplierSalesStats = useMemo(() => {
+    const activeOrders = filteredOrders.filter((o) => o.status !== 'cancelled');
+    const activeB2bOrders = filteredB2bOrders.filter((bo) => bo.status !== 'cancelled');
+    const isAllTime = selectedPeriod === null;
+
+    const suppliersRecordedSum =
+      isAllTime && activeOrders.length > 0
+        ? suppliers.reduce((sum, s) => sum + (Number(s.totalSalesSum) || 0), 0)
+        : 0;
+    const periodOrdersSum = activeOrders.reduce(
+      (sum, o) => sum + (Number(o.totalAmount) || 0),
+      0
+    );
+    const periodB2bOrdersSum = activeB2bOrders.reduce(
+      (sum, bo) => sum + (Number(bo.totalAmount) || 0),
+      0
+    );
+    const txIncomeSum = filteredTx
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+    const palette = [
+      { color: 'bg-[#FFB800]', hex: '#FFB800' },
+      { color: 'bg-emerald-500', hex: '#10B981' },
+      { color: 'bg-blue-500', hex: '#3B82F6' },
+      { color: 'bg-purple-500', hex: '#A855F7' },
+      { color: 'bg-rose-500', hex: '#F43F5E' },
+      { color: 'bg-cyan-400', hex: '#22D3EE' },
+    ];
+
+    const supplierBreakdown = suppliers.map((s, idx) => {
+      const commissionRate = Math.min(100, Math.max(0.1, Number(s.commissionRate) || 1));
+      const orderSumForSupp = activeOrders.reduce((acc, o) => {
+        const itemsSum = (o.items || []).reduce((iAcc, item) => {
+          const matchedProd = products.find(
+            (p) =>
+              p.id === item.productId ||
+              (p.title && item.title && p.title.trim().toLowerCase() === item.title.trim().toLowerCase())
+          );
+          if (doesOrderItemBelongToSupplier(item, matchedProd, s, suppliers)) {
+            return iAcc + (Number(item.price) || 0) * (Number(item.quantity) || 0);
+          }
+          return iAcc;
+        }, 0);
+        return acc + itemsSum;
+      }, 0);
+
+      // Also include B2B orders where this supplier is the manufacturer
+      const b2bSumForSupp = activeB2bOrders.reduce((acc, bo) => {
+        const normManufacturer = cleanCompanyName(bo.manufacturerCompanyName);
+        const normSupp = cleanCompanyName(s.companyName);
+        if (
+          (bo.manufacturerId && bo.manufacturerId === s.id) ||
+          (normManufacturer && normSupp && (normManufacturer === normSupp || normManufacturer.includes(normSupp) || normSupp.includes(normManufacturer)))
+        ) {
+          return acc + (Number(bo.totalAmount) || 0);
+        }
+        return acc;
+      }, 0);
+
+      const totalOrderSumForSupp = orderSumForSupp + b2bSumForSupp;
+
+      const grossAmount =
+        isAllTime && (activeOrders.length > 0 || activeB2bOrders.length > 0)
+          ? Math.max(Number(s.totalSalesSum) || 0, totalOrderSumForSupp)
+          : totalOrderSumForSupp;
+
+      const bunkerProfitUzs = Math.round((grossAmount * commissionRate) / 100);
+      const netTransferredUzs = Math.max(0, grossAmount - bunkerProfitUzs);
+      const pal = palette[idx % palette.length];
+
+      return {
+        id: s.id,
+        companyName: s.companyName,
+        inn: s.inn || '',
+        region: s.region || '',
+        cabinetType: s.cabinetType === 'manufacturer' ? ('B2B' as const) : ('B2C' as const),
+        commissionRate,
+        amountUzs: grossAmount,
+        netTransferredUzs,
+        bunkerProfitUzs,
+        color: pal.color,
+        hex: pal.hex,
+      };
+    });
+
+    let unmatchedOrdersSum = 0;
+    activeOrders.forEach((o) => {
+      (o.items || []).forEach((item) => {
+        const lineSum = (Number(item.price) || 0) * (Number(item.quantity) || 0);
+        const matchedProd = products.find(
+          (p) =>
+            p.id === item.productId ||
+            (p.title && item.title && p.title.trim().toLowerCase() === item.title.trim().toLowerCase())
+        );
+        const foundSupp = suppliers.some((s) =>
+          doesOrderItemBelongToSupplier(item, matchedProd, s, suppliers)
+        );
+        if (!foundSupp) {
+          unmatchedOrdersSum += lineSum;
+        }
+      });
+    });
+
+    const sumFromSuppliersGross = supplierBreakdown.reduce((acc, b) => acc + b.amountUzs, 0);
+    const totalTransferredUzs = Math.max(
+      sumFromSuppliersGross + unmatchedOrdersSum,
+      suppliersRecordedSum,
+      periodOrdersSum + periodB2bOrdersSum,
+      txIncomeSum
+    );
+
+    const suppliersCount = suppliers.length;
+    const totalPoolCapacity = suppliersCount > 0 ? suppliersCount * 100 : 100;
+    const sumCommissionRates =
+      suppliersCount > 0
+        ? suppliers.reduce((acc, s) => acc + Math.min(100, Math.max(0.1, Number(s.commissionRate) || 1)), 0)
+        : 0;
+    const normalizedBunkerPct =
+      totalTransferredUzs > 0
+        ? suppliersCount > 0
+          ? Number(((sumCommissionRates / totalPoolCapacity) * 100).toFixed(1))
+          : 1
+        : 0;
+
+    const matchedSalesSum = supplierBreakdown.reduce((acc, b) => acc + b.amountUzs, 0);
+    const matchedProfitSum = supplierBreakdown.reduce((acc, b) => acc + b.bunkerProfitUzs, 0);
+    const remainingSalesUzs = Math.max(0, totalTransferredUzs - matchedSalesSum);
+    const remainingProfitUzs = Math.round((remainingSalesUzs * (normalizedBunkerPct || 1)) / 100);
+    const totalBunkerProfitUzs = totalTransferredUzs > 0 ? matchedProfitSum + remainingProfitUzs : 0;
+
+    const rawBunkerPct =
+      totalTransferredUzs > 0
+        ? matchedSalesSum > 0
+          ? (totalBunkerProfitUzs / totalTransferredUzs) * 100
+          : normalizedBunkerPct
+        : 0;
+
+    const effectiveBunkerPct =
+      totalTransferredUzs > 0
+        ? Number.isInteger(Number(rawBunkerPct.toFixed(1)))
+          ? Math.round(rawBunkerPct)
+          : Number(rawBunkerPct.toFixed(1))
+        : 0;
+    const effectiveSupplierPct =
+      totalTransferredUzs > 0
+        ? Number((100 - effectiveBunkerPct).toFixed(1))
+        : 0;
+
+    const maxSuppAmount = Math.max(...supplierBreakdown.map((b) => b.amountUzs), 1);
+
+    const b2bCabinets = supplierBreakdown.filter((b) => b.cabinetType === 'B2B');
+    const b2cCabinets = supplierBreakdown.filter((b) => b.cabinetType === 'B2C');
+
+    const b2bTurnoverUzs = b2bCabinets.reduce((s, b) => s + b.amountUzs, 0);
+    const b2bBunkerProfitUzs = b2bCabinets.reduce((s, b) => s + b.bunkerProfitUzs, 0);
+    const b2bSupplierNetUzs = Math.max(0, b2bTurnoverUzs - b2bBunkerProfitUzs);
+
+    const b2cTurnoverUzs = b2cCabinets.reduce((s, b) => s + b.amountUzs, 0);
+    const b2cBunkerProfitUzs = b2cCabinets.reduce((s, b) => s + b.bunkerProfitUzs, 0);
+    const b2cSupplierNetUzs = Math.max(0, b2cTurnoverUzs - b2cBunkerProfitUzs);
+
+    // Foydalanuvchi (Mijoz) kabinetlar savdo aylanmasi
+    const customerBreakdown = customers.map((c) => {
+      const custPhone = (c.phone || '').replace(/\D/g, '').slice(-9);
+      const custName = (c.displayName || `${c.firstName || ''} ${c.lastName || ''}`).trim().toLowerCase();
+      const custOrders = activeOrders.filter((o) => {
+        if (o.buyerId && o.buyerId === c.id) return true;
+        const oPhone = (o.buyerPhone || (o as any).recipientPhone || '').replace(/\D/g, '').slice(-9);
+        if (custPhone && oPhone && custPhone === oPhone) return true;
+        const oName = (o.buyerName || (o as any).recipientName || '').trim().toLowerCase();
+        if (custName && oName && custName === oName) return true;
+        return false;
+      });
+      const turnoverUzs = custOrders.reduce((s, o) => s + (Number(o.totalAmount) || 0), 0);
+      return {
+        id: c.id,
+        name: c.displayName || `${c.firstName || ''} ${c.lastName || ''}`.trim() || 'Mijoz',
+        phone: c.phone || '—',
+        region: c.region || '—',
+        ordersCount: custOrders.length,
+        amountUzs: turnoverUzs,
+      };
+    });
+
+    const customerTotalTurnoverUzs = Math.max(
+      periodOrdersSum,
+      customerBreakdown.reduce((s, c) => s + c.amountUzs, 0)
+    );
+
+    return {
+      totalTransferredUzs,
+      totalBunkerProfitUzs,
+      bunkerSharePct: effectiveBunkerPct,
+      supplierSharePct: effectiveSupplierPct,
+      validOrdersCount: activeOrders.length + activeB2bOrders.length,
+      b2bCabinetsCount: b2bCabinets.length,
+      b2cCabinetsCount: b2cCabinets.length,
+      customerCabinetsCount: customers.length,
+      b2bTurnoverUzs,
+      b2bSupplierNetUzs,
+      b2bBunkerProfitUzs,
+      b2cTurnoverUzs,
+      b2cSupplierNetUzs,
+      b2cBunkerProfitUzs,
+      customerTotalTurnoverUzs,
+      supplierBreakdown: supplierBreakdown.map((b) => ({
+        ...b,
+        pct: totalTransferredUzs > 0 ? Math.round((b.amountUzs / totalTransferredUzs) * 100) : 0,
+        barHeightPct: b.amountUzs > 0 ? Math.max(12, Math.round((b.amountUzs / maxSuppAmount) * 100)) : 0,
+      })),
+      customerBreakdown,
+    };
+  }, [filteredOrders, filteredB2bOrders, filteredTx, suppliers, products, customers, selectedPeriod]);
+
+  // 2. 12 OYLIK SAVDO VA TALAB DINAMIKASI (YAN — DEK, VAQT FILTRI BILAN UMUMIYDA ISHLAYDI)
+  const monthlyData = useMemo(() => {
+    const monthNames = ['Yan', 'Fev', 'Mar', 'Apr', 'May', 'Iyun', 'Iyul', 'Avg', 'Sen', 'Okt', 'Noy', 'Dek'];
+    const currentYear = new Date().getFullYear();
+
+    const months12 = monthNames.map((m, idx) => ({
+      month: m,
+      monthIdx: idx,
+      year: currentYear,
+      sum: 0,
+      demandOrdersCount: 0,
+    }));
+
+    filteredOrders.forEach((o) => {
+      if (o.status === 'cancelled' || !o.createdAt) return;
+      const d = new Date(o.createdAt);
+      if (isNaN(d.getTime())) return;
+      const bucket = months12[d.getMonth()];
+      if (bucket) {
+        bucket.sum += Number(o.totalAmount) || 0;
+        bucket.demandOrdersCount += 1;
+      }
+    });
+
+    filteredB2bOrders.forEach((bo) => {
+      if (bo.status === 'cancelled' || !bo.createdAt) return;
+      const d = new Date(bo.createdAt);
+      if (isNaN(d.getTime())) return;
+      const bucket = months12[d.getMonth()];
+      if (bucket) {
+        bucket.sum += Number(bo.totalAmount) || 0;
+        bucket.demandOrdersCount += 1;
+      }
+    });
+
+    const maxSum = Math.max(...months12.map((b) => b.sum), 0);
+    const maxDemand = Math.max(...months12.map((b) => b.demandOrdersCount), 0);
+
+    return months12.map((b) => ({
+      month: b.month,
+      val: b.sum,
+      demandCount: b.demandOrdersCount,
+      displayUzs:
+        b.sum >= 1_000_000
+          ? `${(b.sum / 1_000_000).toFixed(1)}m`
+          : `${new Intl.NumberFormat('uz-UZ').format(b.sum)}`,
+      full: formatSum(b.sum),
+      salesPct: maxSum > 0 ? Math.max(10, Math.round((b.sum / maxSum) * 100)) : 0,
+      demandPct: maxDemand > 0 ? Math.max(10, Math.round((b.demandOrdersCount / maxDemand) * 100)) : 0,
+    }));
+  }, [filteredOrders, filteredB2bOrders]);
+
+  const total12MonthsTurnover = useMemo(
+    () => monthlyData.reduce((acc, m) => acc + m.val, 0),
+    [monthlyData]
+  );
+
+  const total12MonthsDemand = useMemo(
+    () => monthlyData.reduce((acc, m) => acc + m.demandCount, 0),
+    [monthlyData]
+  );
+
+  // 3. HUDUDLAR MIQYOSIDA KABINETLAR DIAGRAMMASI (14 TA HUDUD: B2B, B2C, FOYDALANUVCHI KABINETLAR SONI VA SAVDO AYLANMASI)
+  const regionalDemands = useMemo(() => {
+    const validOrders = filteredOrders.filter((o) => o.status !== 'cancelled');
+    const validB2bOrders = filteredB2bOrders.filter((bo) => bo.status !== 'cancelled');
+
+    const regMap: Record<
+      string,
+      {
+        ordersCount: number;
+        salesUzs: number;
+        itemsQty: number;
+        b2bCount: number;
+        b2cCount: number;
+        suppliersCount: number;
+        customersCount: number;
+      }
+    > = {};
+
+    UZBEKISTAN_REGIONS.forEach((r) => {
+      regMap[r.key] = {
+        ordersCount: 0,
+        salesUzs: 0,
+        itemsQty: 0,
+        b2bCount: 0,
+        b2cCount: 0,
+        suppliersCount: 0,
+        customersCount: 0,
+      };
+    });
+
+    // 1) Viloyatdagi B2B va B2C Ta'minotchi kabinetlar sonini hisoblash
+    suppliers.forEach((s) => {
+      const matchedKey = resolveRegionKey(s.region, s.district) || UZBEKISTAN_REGIONS[0].key;
+      if (regMap[matchedKey]) {
+        regMap[matchedKey].suppliersCount += 1;
+        if (s.cabinetType === 'manufacturer') {
+          regMap[matchedKey].b2bCount += 1;
+        } else {
+          regMap[matchedKey].b2cCount += 1;
+        }
+      }
+    });
+
+    // 2) Viloyatdagi Foydalanuvchi (Mijoz) kabinetlar sonini hisoblash
+    customers.forEach((c) => {
+      const matchedKey = resolveRegionKey(c.region, c.district) || UZBEKISTAN_REGIONS[0].key;
+      if (regMap[matchedKey]) {
+        regMap[matchedKey].customersCount += 1;
+      }
+    });
+
+    // 3) Viloyatdagi Buyurtmalar (Talab) va Savdo hajmini hisoblash
+    validOrders.forEach((o) => {
+      const rawRegion = (o as any).deliveryRegion || '';
+      const rawAddr = o.deliveryAddress || '';
+      const matchedKey = resolveRegionKey(rawRegion, rawAddr) || UZBEKISTAN_REGIONS[0].key;
+
+      const amount = Number(o.totalAmount) || 0;
+      const qty = (o.items || []).reduce((s, i) => s + (Number(i.quantity) || 0), 0);
+      regMap[matchedKey].ordersCount += 1;
+      regMap[matchedKey].salesUzs += amount;
+      regMap[matchedKey].itemsQty += qty;
+    });
+
+    validB2bOrders.forEach((bo) => {
+      const matchedKey =
+        resolveRegionKey(bo.manufacturerRegion, bo.buyerRegion) || UZBEKISTAN_REGIONS[0].key;
+      const amount = Number(bo.totalAmount) || 0;
+      regMap[matchedKey].ordersCount += 1;
+      regMap[matchedKey].salesUzs += amount;
+    });
+
+    const totalRegCabinets = Object.values(regMap).reduce(
+      (s, r) => s + r.suppliersCount + r.customersCount,
+      0
+    );
+    const totalRegSales = Object.values(regMap).reduce((s, r) => s + r.salesUzs, 0);
+    const maxRegCabinets = Math.max(
+      ...Object.values(regMap).map((r) => r.suppliersCount + r.customersCount),
+      1
+    );
+    const maxRegSales = Math.max(...Object.values(regMap).map((r) => r.salesUzs), 1);
+
+    return UZBEKISTAN_REGIONS.map((r) => {
+      const data = regMap[r.key];
+      const totalCabinets = data.suppliersCount + data.customersCount;
+      const shareByCabinets =
+        totalRegCabinets > 0 ? Math.round((totalCabinets / totalRegCabinets) * 100) : 0;
+      const shareBySales = totalRegSales > 0 ? Math.round((data.salesUzs / totalRegSales) * 100) : 0;
+      const sharePct = totalRegCabinets > 0 ? shareByCabinets : shareBySales;
+
+      const barPct =
+        totalCabinets > 0
+          ? Math.max(14, Math.round((totalCabinets / maxRegCabinets) * 100))
+          : data.salesUzs > 0
+          ? Math.max(14, Math.round((data.salesUzs / maxRegSales) * 100))
+          : 0;
+
+      return {
+        region: r.key,
+        color: r.color,
+        hex: r.hex,
+        ordersCount: data.ordersCount,
+        itemsQty: data.itemsQty,
+        salesUzs: data.salesUzs,
+        b2bCount: data.b2bCount,
+        b2cCount: data.b2cCount,
+        suppliersCount: data.suppliersCount,
+        customersCount: data.customersCount,
+        totalCabinets,
+        sharePct,
+        barPct,
+      };
+    });
+  }, [filteredOrders, filteredB2bOrders, suppliers, customers]);
 
   return (
-    <div className="w-full space-y-8 animate-fadeIn text-[#F5F5F2]">
-      
-      {/* =========================================================================
-          TOP BREADCRUMBS & LIVE HEADER (BUNKER ASOSIY BOSHQARUV PANELI · JONLI REJIM)
-          ========================================================================= */}
-      <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-5 sm:p-7 shadow-2xl relative overflow-hidden">
-        {/* Subtle Hazard Top Hairline */}
-        <div className="absolute top-0 left-0 right-0 h-1.5 hazard-stripe-sm opacity-90" />
-        
-        {/* Industrial Rivets */}
-        <div className="absolute top-3 left-3 industrial-rivet" />
-        <div className="absolute top-3 right-3 industrial-rivet" />
-        <div className="absolute bottom-3 left-3 industrial-rivet" />
-        <div className="absolute bottom-3 right-3 industrial-rivet" />
-
+    <div className="w-full space-y-6 animate-fadeIn text-[#F5F5F2]">
+      {/* TOP HEADER & VAQT FILTRI (KUN, HAFTA, OY, VAQT ORALIG'I — MONITORING BO'LIMI UCHUN UMUMIYDA ISHLAYDI) */}
+      <div className="bg-[#0A1931] border-2 border-[#1E3A6D] rounded-2xl p-5 sm:p-6 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-xs font-mono tracking-wider text-[#FFB800] uppercase font-bold">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping inline-block" />
-              <span>BUNKER ASOSIY BOSHQARUV PANELI · JONLI REJIM</span>
-              <span className="text-[#51504A]">|</span>
-              <span className="text-[#B8B8B3]">TOSHKENT KLINIK KLASTERI</span>
-            </div>
-            
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#F5F5F2] tracking-tight">
-              Bunker Statistikasi & Operatsion Tahlil
+          <div className="space-y-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight">
+              Monitoring va Hisobotlar Paneli
             </h1>
-            
-            <p className="text-xs sm:text-sm text-[#B8B8B3] max-w-3xl leading-relaxed">
-              BunkerStroy sanoat klasteri bo‘yicha real-vaqt aylanmasi, ombor qoldiqlari, og‘ir yuk logistikasi va xalqaro import dinamikasi monitoringi.
+            <p className="text-xs text-sky-200">
+              B2B, B2C va Foydalanuvchi kabinetlari soni, ulushlar, savdo aylanmasi hamda hududlar diagrammasi
             </p>
           </div>
 
-          {/* Quick period filters */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 rounded-xl bg-[#151719] border border-[#51504A] shrink-0">
+          {/* Period filters: Kun, Hafta, Oy va Vaqt oralig'i (Umumiyda ishlaydi) */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1.5 rounded-xl bg-[#071326] border border-[#1E3A6D] shrink-0">
             <button
               type="button"
-              onClick={() => setSelectedPeriod('all')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedPeriod === 'all'
-                  ? 'bg-[#FFB800] text-[#151719] font-black shadow-md'
-                  : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
+              onClick={() => setSelectedPeriod(null)}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedPeriod === null
+                  ? 'bg-[#FFB800] text-[#0A1931] font-black shadow-md'
+                  : 'text-sky-200 hover:text-white'
               }`}
             >
-              Barcha davr
+              Umumiy
             </button>
             <button
               type="button"
-              onClick={() => setSelectedPeriod('today')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedPeriod === 'today'
-                  ? 'bg-[#FFB800] text-[#151719] font-black shadow-md'
-                  : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
+              onClick={() => setSelectedPeriod((prev) => (prev === 'day' ? null : 'day'))}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedPeriod === 'day'
+                  ? 'bg-[#FFB800] text-[#0A1931] font-black shadow-md'
+                  : 'text-sky-200 hover:text-white'
               }`}
             >
-              Bugun
+              Kun
             </button>
             <button
               type="button"
-              onClick={() => setSelectedPeriod('week')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              onClick={() => setSelectedPeriod((prev) => (prev === 'week' ? null : 'week'))}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedPeriod === 'week'
-                  ? 'bg-[#FFB800] text-[#151719] font-black shadow-md'
-                  : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
+                  ? 'bg-[#FFB800] text-[#0A1931] font-black shadow-md'
+                  : 'text-sky-200 hover:text-white'
               }`}
             >
-              Ushbu hafta
+              Hafta
             </button>
             <button
               type="button"
-              onClick={() => setSelectedPeriod('month')}
-              className={`px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              onClick={() => setSelectedPeriod((prev) => (prev === 'month' ? null : 'month'))}
+              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 selectedPeriod === 'month'
-                  ? 'bg-[#FFB800] text-[#151719] font-black shadow-md'
-                  : 'text-[#B8B8B3] hover:text-[#F5F5F2]'
+                  ? 'bg-[#FFB800] text-[#0A1931] font-black shadow-md'
+                  : 'text-sky-200 hover:text-white'
               }`}
             >
-              Ushbu oy
+              Oy
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsRangeModalOpen(true);
+              }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                selectedPeriod === 'range'
+                  ? 'bg-[#FFB800] text-[#0A1931] font-black shadow-md'
+                  : 'text-sky-200 hover:text-white'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Vaqt oralig'i</span>
+              {selectedPeriod === 'range' && (
+                <span className="text-[10px] bg-[#0A1931] text-[#FFB800] px-1.5 py-0.5 rounded font-mono ml-1 font-bold">
+                  {startDate.slice(5)} - {endDate.slice(5)}
+                </span>
+              )}
+            </button>
+            {selectedPeriod !== null && (
+              <button
+                type="button"
+                onClick={() => setSelectedPeriod(null)}
+                title="Umumiy barchasini ko'rsatish"
+                className="px-2.5 py-2 rounded-lg text-xs font-bold text-[#FFB800] hover:bg-[#132C54] transition-all cursor-pointer flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Custom Date Range Modal */}
+        {isRangeModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-[#0A1931] border-2 border-[#FFB800] rounded-xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-2 border-b border-[#1E3A6D]">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#FFB800]" />
+                  <h3 className="text-sm font-black text-white">Vaqt oralig'ini belgilash</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRangeModalOpen(false)}
+                  className="p-1 rounded bg-[#071326] text-sky-200 hover:text-white cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="space-y-1">
+                  <label className="text-sky-200 font-bold block">Boshlang‘ich sana:</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#071326] border border-[#1E3A6D] rounded-lg text-white focus:outline-none focus:border-[#FFB800] font-mono"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sky-200 font-bold block">Tugash sanasi:</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-[#071326] border border-[#1E3A6D] rounded-lg text-white focus:outline-none focus:border-[#FFB800] font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#1E3A6D]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPeriod(null);
+                    setIsRangeModalOpen(false);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-[#071326] text-xs font-bold text-sky-200 hover:text-white cursor-pointer"
+                >
+                  Umumiy (Barchasi)
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsRangeModalOpen(false)}
+                    className="px-3 py-1.5 rounded-lg bg-[#071326] text-xs font-bold text-sky-200 hover:text-white cursor-pointer"
+                  >
+                    Yopish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPeriod('range');
+                      setIsRangeModalOpen(false);
+                    }}
+                    className="px-4 py-1.5 rounded-lg bg-[#FFB800] hover:bg-[#FFC928] text-[#0A1931] text-xs font-black shadow-md cursor-pointer"
+                  >
+                    Belgilash
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 1-QATOR: B2B KABINETLAR SONI, B2C KABINETLAR SONI VA FOYDALANUVCHI KABINETLAR SONI (UMUMIY AYLANMA, FOYDA VA BUNKER FOYDASI BILAN) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 1. B2B Kabinetlar Soni va Savdo Aylanmasi */}
+        <div className="bg-[#0A1931] border-2 border-[#FFB800]/60 rounded-2xl p-5 shadow-xl flex flex-col justify-between gap-4">
+          <div className="flex items-center justify-between border-b border-[#1E3A6D] pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FFB800]/20 border border-[#FFB800]/50 text-[#FFB800] flex items-center justify-center shrink-0">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white">B2B Kabinetlar Soni</h3>
+                <p className="text-[11px] text-sky-200">Ishlab chiqaruvchi ta’minotchilar</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-xl bg-[#071326] border border-[#FFB800]/50 text-[#FFB800] font-mono font-black text-lg">
+              {supplierSalesStats.b2bCabinetsCount} ta
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#071326] border border-[#1E3A6D] space-y-2 text-xs font-mono">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sky-200 font-bold">B2B Umumiy Aylanmasi:</span>
+              <span className="text-sm sm:text-base font-black text-[#FFB800]">
+                {formatSum(supplierSalesStats.b2bTurnoverUzs)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1E3A6D]/70">
+              <span className="text-sky-200">B2B Foydasi (Ta’minotchi):</span>
+              <span className="font-black text-white">
+                {formatSum(supplierSalesStats.b2bSupplierNetUzs)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1E3A6D]/70">
+              <span className="text-emerald-300 font-bold">Bunker Foydasi (Ulushi):</span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-400 font-black">
+                {formatSum(supplierSalesStats.b2bBunkerProfitUzs)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 2. B2C Kabinetlar Soni va Savdo Aylanmasi */}
+        <div className="bg-[#0A1931] border-2 border-emerald-500/60 rounded-2xl p-5 shadow-xl flex flex-col justify-between gap-4">
+          <div className="flex items-center justify-between border-b border-[#1E3A6D] pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/50 text-emerald-400 flex items-center justify-center shrink-0">
+                <Store className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white">B2C Kabinetlar Soni</h3>
+                <p className="text-[11px] text-sky-200">Hamkor ta’minotchi kabinetlar</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-xl bg-[#071326] border border-emerald-400/50 text-emerald-400 font-mono font-black text-lg">
+              {supplierSalesStats.b2cCabinetsCount} ta
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#071326] border border-[#1E3A6D] space-y-2 text-xs font-mono">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sky-200 font-bold">B2C Umumiy Aylanmasi:</span>
+              <span className="text-sm sm:text-base font-black text-[#FFB800]">
+                {formatSum(supplierSalesStats.b2cTurnoverUzs)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1E3A6D]/70">
+              <span className="text-sky-200">B2C Foydasi (Ta’minotchi):</span>
+              <span className="font-black text-white">
+                {formatSum(supplierSalesStats.b2cSupplierNetUzs)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-[#1E3A6D]/70">
+              <span className="text-emerald-300 font-bold">Bunker Foydasi (Ulushi):</span>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-400 font-black">
+                {formatSum(supplierSalesStats.b2cBunkerProfitUzs)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Foydalanuvchi Kabinetlar Soni va Savdo Aylanmasi */}
+        <div className="bg-[#0A1931] border-2 border-blue-500/60 rounded-2xl p-5 shadow-xl flex flex-col justify-between gap-4">
+          <div className="flex items-center justify-between border-b border-[#1E3A6D] pb-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/50 text-blue-400 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-white">Foydalanuvchi Kabinetlar Soni</h3>
+                <p className="text-[11px] text-sky-200">Ro‘yxatdan o‘tgan mijoz kabinetlari</p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-xl bg-[#071326] border border-blue-400/50 text-blue-400 font-mono font-black text-lg">
+              {supplierSalesStats.customerCabinetsCount} ta
+            </span>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-[#071326] border border-[#1E3A6D] space-y-2 text-xs font-mono">
+            <span className="text-[11px] font-bold uppercase text-sky-200 block">
+              Umumiy savdoda:
+            </span>
+            <div className="text-lg sm:text-xl font-black text-blue-400 font-mono">
+              {formatSum(supplierSalesStats.customerTotalTurnoverUzs)} aylanma
+            </div>
+            <div className="text-[11px] text-sky-300/80 pt-1 border-t border-[#1E3A6D]/70">
+              Onlayn buyurtmalar soni: <strong className="text-white">{supplierSalesStats.validOrdersCount} ta</strong>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* =========================================================================
-          6 ASOSIY OPERATSION KO'RSATKICHLAR (KPI CARDS)
-          ========================================================================= */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        
-        {/* Card 1: Jami Aylanma */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Jami Aylanma
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-[#FFB800]/10 border border-[#FFB800]/30 text-[#FFB800] flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 stroke-[2.5]" />
+      {/* 2-QATOR: UMUMIY % (B2B HAM B2C HAM) — TA'MINOTCHILAR ULUSHI VA BUNKER STROY ULUSHI (% ... SO'M KO'RINISHIDA) */}
+      <div className="bg-[#0A1931] border-2 border-[#FFB800]/70 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[#1E3A6D]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#FFB800]/15 border border-[#FFB800]/40 text-[#FFB800] flex items-center justify-center shrink-0">
+              <Wallet className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-white">
+                Umumiy Savdodan Kelgan Mablag‘ va Ulushlar Monitoringi (B2B + B2C)
+              </h2>
+              <p className="text-xs text-sky-200">
+                Umumiy % ko‘rsatkichi: B2B va B2C ta’minotchilar ulushi hamda Bunker Stroy ulushi
+              </p>
             </div>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#F5F5F2] font-mono tracking-tight">
-            {stats.totalTurnover}
-          </div>
-          <div className="mt-2.5 flex items-center gap-1.5 text-xs font-bold text-emerald-400">
-            <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
-            <span>{stats.turnoverGrowth}</span>
-          </div>
+          <span className="px-3.5 py-1.5 rounded-xl bg-[#071326] border border-[#FFB800]/50 font-mono text-sm sm:text-base text-[#FFB800] font-black">
+            Umumiy savdo (100%): {formatSum(supplierSalesStats.totalTransferredUzs)}
+          </span>
         </div>
 
-        {/* Card 2: Sof Foyda / Rentabellik */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Sof Foyda / Rentabellik
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-              <Wallet className="w-4 h-4 stroke-[2.5]" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
-            {stats.netProfit}
-          </div>
-          <div className="mt-2.5 text-xs text-[#B8B8B3] font-medium flex items-center gap-2">
-            <span className="text-[#FFB800] font-bold">Rentabellik: {stats.profitMargin}</span>
-            <span className="text-[#51504A]">·</span>
-            <span>Kirim: {stats.income}</span>
-          </div>
-        </div>
+        {/* Ta'minotchilar Ulushi va Bunker Stroy Ulushi (Yashil bilan) */}
+        <div className="p-4 sm:p-5 rounded-xl bg-[#071326] border border-[#1E3A6D] flex flex-col md:flex-row items-center gap-6">
+          {(() => {
+            const radius = 52;
+            const circumference = 2 * Math.PI * radius;
+            const total = supplierSalesStats.totalTransferredUzs;
+            const profit = supplierSalesStats.totalBunkerProfitUzs;
+            const netSupp = Math.max(0, total - profit);
 
-        {/* Card 3: Bunker Mahsulot Qoldig'i */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Bunker Mahsulot Qoldig'i
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-400 flex items-center justify-center">
-              <Package className="w-4 h-4 stroke-[2.5]" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#F5F5F2] font-mono tracking-tight">
-            {stats.stockTons}
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-xs">
-            <span className="text-[#B8B8B3]">{stats.stockPositions}</span>
-            <button
-              type="button"
-              onClick={onNavigateToCatalog}
-              className="text-[#FFB800] hover:text-[#FFC928] font-bold flex items-center gap-1 cursor-pointer hover:underline"
-            >
-              <span>Katalogga o'tish →</span>
-            </button>
-          </div>
-        </div>
+            const suppPct = supplierSalesStats.supplierSharePct;
+            const bunkerPct = supplierSalesStats.bunkerSharePct;
+            const hasData = total > 0;
 
-        {/* Card 4: Logistika & Avtopark */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Logistika & Avtopark
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center">
-              <Truck className="w-4 h-4 stroke-[2.5]" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#F5F5F2] font-mono tracking-tight">
-            {stats.heavyFleet}
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-xs">
-            <span className="text-[#B8B8B3]">{stats.completedTrips}</span>
-            <button
-              type="button"
-              onClick={onNavigateToLogistics}
-              className="text-[#FFB800] hover:text-[#FFC928] font-bold flex items-center gap-1 cursor-pointer hover:underline"
-            >
-              <span>Logistikaga o'tish →</span>
-            </button>
-          </div>
-        </div>
+            const suppDashLen = hasData ? (suppPct / 100) * circumference : 0;
+            const bunkerDashLen = hasData ? (bunkerPct / 100) * circumference : 0;
 
-        {/* Card 5: Global Bunker Import */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Global Bunker Import
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 flex items-center justify-center">
-              <Globe className="w-4 h-4 stroke-[2.5]" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-[#F5F5F2] font-mono tracking-tight">
-            {stats.globalFactories}
-          </div>
-          <div className="mt-2.5 flex items-center justify-between text-xs">
-            <span className="text-[#B8B8B3]">{stats.globalContract}</span>
-            <button
-              type="button"
-              onClick={onNavigateToGlobal}
-              className="text-[#FFB800] hover:text-[#FFC928] font-bold flex items-center gap-1 cursor-pointer hover:underline"
-            >
-              <span>Globalga o'tish →</span>
-            </button>
-          </div>
-        </div>
+            return (
+              <>
+                <div className="relative w-36 h-36 shrink-0 flex items-center justify-center">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 140 140">
+                    <circle
+                      cx="70"
+                      cy="70"
+                      r={radius}
+                      fill="transparent"
+                      stroke="#0A1931"
+                      strokeWidth="16"
+                    />
+                    {hasData && (
+                      <>
+                        {/* Ta'minotchilar Ulushi — Ko'k rangda */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          fill="transparent"
+                          stroke="#3B82F6"
+                          strokeWidth="16"
+                          strokeDasharray={`${suppDashLen} ${circumference}`}
+                          strokeDashoffset={0}
+                          className="transition-all duration-700"
+                        />
+                        {/* Bunker Stroy Ulushi — Yashil rangda */}
+                        <circle
+                          cx="70"
+                          cy="70"
+                          r={radius}
+                          fill="transparent"
+                          stroke="#10B981"
+                          strokeWidth="16"
+                          strokeDasharray={`${bunkerDashLen} ${circumference}`}
+                          strokeDashoffset={-suppDashLen}
+                          className="transition-all duration-700"
+                        />
+                      </>
+                    )}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-2">
+                    <span className="text-xs sm:text-sm font-black text-white font-mono leading-tight">
+                      {formatSum(total)}
+                    </span>
+                    <span className="text-[10px] font-mono text-sky-300 font-bold mt-0.5">
+                      {hasData ? '100%' : '0%'}
+                    </span>
+                  </div>
+                </div>
 
-        {/* Card 6: Qaytarilgan Tovarlar */}
-        <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-xl p-5 sm:p-6 shadow-xl transition-all relative overflow-hidden group">
-          <div className="flex items-center justify-between pb-3">
-            <span className="text-xs font-mono font-bold uppercase tracking-wider text-[#B8B8B3]">
-              Qaytarilgan Tovarlar
-            </span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 stroke-[2.5]" />
-            </div>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-400 font-mono tracking-tight">
-            {stats.returnedCount}
-          </div>
-          <div className="mt-2.5 text-xs text-emerald-300 font-medium">
-            {stats.returnedCert}
-          </div>
-        </div>
+                <div className="flex-1 w-full space-y-3">
+                  {/* 1. Ta'minotchilar Ulushi (B2B + B2C) */}
+                  <div className="p-3.5 rounded-xl bg-[#0A1931] border border-blue-500/50 hover:border-blue-400 transition-all space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-3.5 h-3.5 rounded-full bg-blue-500 shrink-0 shadow-[0_0_8px_rgba(59,130,246,0.6)]" />
+                        <span className="font-black text-white">Ta’minotchilar Ulushi (B2B + B2C)</span>
+                      </div>
+                      <div className="font-mono font-black flex items-center gap-2.5">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-400/40 text-xs">
+                          {suppPct}%
+                        </span>
+                        <span className="text-blue-400 text-sm sm:text-base">{formatSum(netSupp)}</span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-mono text-sky-200 flex flex-wrap items-center gap-3 pl-6">
+                      <span>B2B ta’minotchi ulushi: <strong className="text-white">{formatSum(supplierSalesStats.b2bSupplierNetUzs)}</strong></span>
+                      <span>•</span>
+                      <span>B2C ta’minotchi ulushi: <strong className="text-white">{formatSum(supplierSalesStats.b2cSupplierNetUzs)}</strong></span>
+                    </div>
+                  </div>
 
+                  {/* 2. Bunker Stroy Ulushi (Yashil rang bilan) */}
+                  <div className="p-3.5 rounded-xl bg-[#0A1931] border border-emerald-500/60 hover:border-emerald-400 transition-all space-y-1.5 text-xs sm:text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.7)]" />
+                        <span className="font-black text-white">Bunker Stroy Ulushi (B2B + B2C)</span>
+                      </div>
+                      <div className="font-mono font-black flex items-center gap-2.5">
+                        <span className="px-2.5 py-0.5 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-400/50 text-xs">
+                          {bunkerPct}%
+                        </span>
+                        <span className="text-emerald-400 text-sm sm:text-base">{formatSum(profit)}</span>
+                      </div>
+                    </div>
+                    <div className="text-[11px] font-mono text-emerald-200/90 flex flex-wrap items-center gap-3 pl-6">
+                      <span>B2B dan Bunker ulushi: <strong className="text-emerald-400">{formatSum(supplierSalesStats.b2bBunkerProfitUzs)}</strong></span>
+                      <span>•</span>
+                      <span>B2C dan Bunker ulushi: <strong className="text-emerald-400">{formatSum(supplierSalesStats.b2cBunkerProfitUzs)}</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </div>
       </div>
 
-      {/* =========================================================================
-          OYLIK AYLANMA DINAMIKASI GRAFIGI (MLRD SO'M)
-          ========================================================================= */}
-      <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-[#51504A]">
+      {/* 3-QATOR: UMUMIY SAVDO HAJMI — BUNKER OYLIK SAVDO HAJMI & TALAB DINAMIKASI (12 OY: YAN — DEK) */}
+      <div className="bg-[#0A1931] border-2 border-[#1E3A6D] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-4 border-b border-[#1E3A6D]">
           <div>
-            <h2 className="text-lg sm:text-xl font-black text-[#F5F5F2] flex items-center gap-2">
+            <h2 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
               <BarChart3 className="w-5 h-5 text-[#FFB800]" />
-              <span>Bunker Oylik Aylanma Dinamikasi (mlrd so'm)</span>
+              <span>Bunker Oylik Savdo Hajmi & Talab Dinamikasi</span>
             </h2>
-            <p className="text-xs text-[#B8B8B3] mt-0.5">
-              So'nggi 6 oy bo'yicha savdo va yuk jo'natmalari hajmi
+            <p className="text-xs text-sky-200 mt-0.5">
+              Umumiy savdo hajmi va buyurtmalar talabi ko‘rsatkichi
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded-lg bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/30 text-xs font-mono font-black">
-              Jami: 1.48 Mlrd
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-3 py-1.5 rounded-lg bg-blue-500/15 text-blue-400 border border-blue-500/30 text-xs font-mono font-black">
+              Talab: {total12MonthsDemand} buyurtma
             </span>
-            <span className="text-xs font-bold text-emerald-400 font-mono hidden sm:inline">
-              O'rtacha oylik o'sish: +16.2%
+            <span className="px-3 py-1.5 rounded-lg bg-[#FFB800]/15 text-[#FFB800] border border-[#FFB800]/30 text-xs font-mono font-black">
+              Jami: {formatSum(total12MonthsTurnover)}
             </span>
           </div>
         </div>
 
-        {/* Dynamic Industrial Bar Chart */}
-        <div className="pt-6 pb-2">
-          <div className="h-64 sm:h-72 w-full flex items-end justify-between gap-3 sm:gap-6 px-2 sm:px-6 relative">
-            
-            {/* Background grid lines */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-15">
-              <div className="border-b border-[#51504A] w-full" />
-              <div className="border-b border-[#51504A] w-full" />
-              <div className="border-b border-[#51504A] w-full" />
-              <div className="border-b border-[#51504A] w-full" />
+        {/* Diagramma Legendasi: Talab va Savdo */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs font-mono px-2">
+          <div className="flex items-center gap-4">
+            <span className="flex items-center gap-1.5 text-white font-bold">
+              <span className="w-3 h-3 rounded-sm bg-[#FFB800] inline-block" />
+              Savdo hajmi (so‘m)
+            </span>
+            <span className="flex items-center gap-1.5 text-blue-400 font-bold">
+              <span className="w-3 h-3 rounded-sm bg-blue-500 inline-block" />
+              Talab (buyurtmalar soni)
+            </span>
+          </div>
+          <span className="text-sky-200">12 oylik ko‘rsatkich (Yanvar — Dekabr)</span>
+        </div>
+
+        {/* 12 Months Dual-Bar Chart (Talab + Savdo) */}
+        <div className="pt-6 pb-2 overflow-x-auto">
+          <div className="min-w-[680px] h-64 sm:h-72 w-full flex items-end justify-between gap-2 sm:gap-3 px-2 sm:px-4 relative">
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+              <div className="border-b border-[#1E3A6D] w-full" />
+              <div className="border-b border-[#1E3A6D] w-full" />
+              <div className="border-b border-[#1E3A6D] w-full" />
+              <div className="border-b border-[#1E3A6D] w-full" />
             </div>
 
             {monthlyData.map((item, idx) => {
@@ -477,406 +1184,177 @@ export const BunkerStatsDashboard: React.FC<BunkerStatsDashboardProps> = ({
                   onMouseEnter={() => setActiveBarHover(idx)}
                   onMouseLeave={() => setActiveBarHover(null)}
                 >
-                  {/* Tooltip on hover */}
-                  <div className={`absolute -top-12 z-20 px-2.5 py-1.5 rounded-lg bg-[#151719] border border-[#FFB800] text-center pointer-events-none transition-all duration-200 ${
-                    isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-95'
-                  }`}>
-                    <div className="text-[10px] text-[#B8B8B3] uppercase font-mono">{item.month} oylik hajmi</div>
-                    <div className="text-xs font-black text-[#FFB800] font-mono">{item.full}</div>
+                  <div
+                    className={`mb-1 px-2 py-1 rounded-lg bg-[#071326] border text-center transition-all duration-200 whitespace-nowrap ${
+                      isHovered || item.val > 0
+                        ? 'border-[#FFB800] opacity-100'
+                        : 'border-[#1E3A6D]/70 opacity-85'
+                    }`}
+                  >
+                    <div className="text-[9px] text-sky-200 uppercase font-mono">{item.month} oyi</div>
+                    <div className="text-[10px] font-black text-[#FFB800] font-mono">{item.full}</div>
+                    <div className="text-[9px] font-bold text-blue-400 font-mono">Talab: {item.demandCount} ta</div>
                   </div>
 
-                  {/* Top value badge */}
-                  <span className={`text-[11px] sm:text-xs font-mono font-black mb-2 transition-colors ${
-                    isHovered ? 'text-[#FFB800]' : 'text-[#F5F5F2]'
-                  }`}>
-                    {item.display}
+                  <span
+                    className={`text-[10px] sm:text-[11px] font-mono font-black mb-1.5 transition-colors ${
+                      isHovered ? 'text-[#FFB800]' : 'text-white'
+                    }`}
+                  >
+                    {item.displayUzs}
                   </span>
 
-                  {/* The bar */}
-                  <div className="w-full max-w-[54px] bg-[#151719] rounded-t-lg border border-[#51504A] overflow-hidden p-0.5 group-hover:border-[#FFB800] transition-all">
+                  {/* Dual Bars: Savdo (Yellow) + Talab (Blue) */}
+                  <div className="w-full max-w-[44px] bg-[#071326] rounded-t-lg border border-[#1E3A6D] overflow-hidden p-1 group-hover:border-[#FFB800] transition-all flex items-end justify-center gap-1">
                     <div
-                      className={`w-full rounded-t transition-all duration-700 ease-out ${
-                        isHovered
-                          ? 'bg-[#FFC928]'
-                          : idx === monthlyData.length - 1
-                          ? 'bg-[#FFB800]'
-                          : 'bg-[#FFB800]/80 group-hover:bg-[#FFB800]'
+                      className={`flex-1 rounded-t transition-all duration-700 ease-out ${
+                        isHovered ? 'bg-[#FFC928]' : 'bg-[#FFB800]'
                       }`}
-                      style={{ height: `${item.pct * 2.1}px` }}
+                      style={{ height: `${item.val > 0 ? Math.max(6, item.salesPct * 1.4) : 2}px` }}
+                      title={`Savdo: ${item.full}`}
+                    />
+                    <div
+                      className="flex-1 bg-blue-500 rounded-t transition-all duration-700 ease-out"
+                      style={{ height: `${item.demandCount > 0 ? Math.max(6, item.demandPct * 1.4) : 2}px` }}
+                      title={`Talab: ${item.demandCount} buyurtma`}
                     />
                   </div>
 
-                  {/* Month Label */}
-                  <span className={`mt-3 text-xs font-mono uppercase font-bold transition-colors ${
-                    isHovered ? 'text-[#FFB800]' : 'text-[#B8B8B3]'
-                  }`}>
+                  <span
+                    className={`mt-2.5 text-[11px] font-mono uppercase font-bold transition-colors ${
+                      isHovered ? 'text-[#FFB800]' : 'text-sky-200'
+                    }`}
+                  >
                     {item.month}
                   </span>
                 </div>
               );
             })}
           </div>
-
-          <div className="mt-4 pt-3 border-t border-[#51504A] flex flex-wrap items-center justify-between text-xs text-[#B8B8B3] font-mono">
-            <div className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded bg-[#FFB800] inline-block" />
-              <span>Oylik aylanma</span>
-            </div>
-            <div className="text-emerald-400 font-bold">
-              O'rtacha oylik o'sish: +16.2%
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* =========================================================================
-          QURILISH MOLLARI TOIFALARI VA LOGISTIKA FLOTI REYSLARI (2 USTUNLI)
-          ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Kolonka 1: Qurilish Mollari Toifalari Taqsimoti (Bunker Ombori) */}
-        <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-6 shadow-2xl space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#51504A]">
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-[#F5F5F2] flex items-center gap-2">
-                <Layers className="w-5 h-5 text-[#FFB800]" />
-                <span>Qurilish Mollari Toifalari Taqsimoti</span>
-              </h3>
-              <p className="text-xs text-[#B8B8B3]">Bunker Ombori umumiy zaxira balansi</p>
-            </div>
-            <span className="text-xs font-mono font-bold text-[#FFB800] px-2 py-0.5 rounded bg-[#FFB800]/10 border border-[#FFB800]/30">
-              Bunker Ombori
+      {/* 4-QATOR: HUDUDLAR MIQYOSIDA KABINETLAR DIAGRAMMASI (14 TA HUDUD BO'YICHA B2B, B2C, FOYDALANUVCHI KABINETLAR VA SAVDO) */}
+      <div className="bg-[#0A1931] border-2 border-[#1E3A6D] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#1E3A6D]">
+          <div>
+            <h3 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-[#FFB800]" />
+              <span>Hududlar Miqyosida Kabinetlar Diagrammasi</span>
+            </h3>
+            <p className="text-xs text-sky-200">
+              14 ta hudud kesimida B2B kabinetlar, B2C kabinetlar, Foydalanuvchi kabinetlar soni va savdo aylanmasi
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-mono font-bold text-[#FFB800] px-3 py-1.5 rounded-lg bg-[#071326] border border-[#FFB800]/40">
+              B2B: {supplierSalesStats.b2bCabinetsCount} ta
+            </span>
+            <span className="text-xs font-mono font-bold text-emerald-400 px-3 py-1.5 rounded-lg bg-[#071326] border border-emerald-400/40">
+              B2C: {supplierSalesStats.b2cCabinetsCount} ta
+            </span>
+            <span className="text-xs font-mono font-bold text-blue-400 px-3 py-1.5 rounded-lg bg-[#071326] border border-blue-400/40">
+              Foydalanuvchi: {supplierSalesStats.customerCabinetsCount} ta
+            </span>
+            <span className="text-xs font-mono font-bold text-white px-3 py-1.5 rounded-lg bg-[#071326] border border-[#1E3A6D]">
+              {formatSum(regionalDemands.reduce((s, r) => s + r.salesUzs, 0))}
             </span>
           </div>
-
-          <div className="space-y-4">
-            {warehouseCategories.map((cat) => (
-              <div key={cat.name} className="space-y-1.5 p-3 rounded-xl bg-[#151719] border border-[#51504A] hover:border-[#FFB800]/40 transition-colors">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-[#F5F5F2] max-w-[260px] truncate sm:max-w-none">
-                    {cat.name}
-                  </span>
-                  <div className="font-mono font-black text-right shrink-0">
-                    <span className="text-[#F5F5F2]">{cat.amount}</span>
-                    <span className="text-[#FFB800] ml-1">({cat.percentage})</span>
-                  </div>
-                </div>
-
-                <div className="w-full h-2 rounded-full bg-[#292C2F] overflow-hidden">
-                  <div
-                    className={`h-full ${cat.color} rounded-full transition-all duration-700`}
-                    style={{ width: cat.percentage }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Kolonka 2: Logistika Floti Reyslari */}
-        <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-6 shadow-2xl space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-[#51504A]">
-            <div>
-              <h3 className="text-base sm:text-lg font-black text-[#F5F5F2] flex items-center gap-2">
-                <Truck className="w-5 h-5 text-[#FFB800]" />
-                <span>Logistika Floti Reyslari</span>
-              </h3>
-              <p className="text-xs text-[#B8B8B3]">Og‘ir texnikalar harakati va yuk tashish unumdorligi</p>
+        {/* Hududlar Miqyosida Kabinetlar Ustunli Diagrammasi */}
+        <div className="p-4 rounded-xl bg-[#071326] border border-[#1E3A6D] overflow-x-auto">
+          <div className="min-w-[680px]">
+            <div className="h-48 flex items-end justify-between gap-2 pt-4 px-2 border-b border-[#1E3A6D]">
+              {regionalDemands.map((reg) => (
+                <div
+                  key={reg.region}
+                  className="flex-1 flex flex-col items-center justify-end h-full group"
+                >
+                  <span className="text-[9px] font-mono font-bold text-sky-200 mb-0.5">
+                    {formatSum(reg.salesUzs)}
+                  </span>
+                  <span className="text-[10px] font-mono font-black text-[#FFB800] mb-1">
+                    {reg.totalCabinets} kabinet
+                  </span>
+                  <div className="w-full max-w-[36px] bg-[#0A1931] rounded-t-lg border border-[#1E3A6D] p-1 flex items-end justify-center gap-0.5">
+                    <div
+                      className={`w-full ${reg.color} rounded-t transition-all duration-700`}
+                      style={{ height: `${reg.barPct > 0 ? Math.max(8, reg.barPct * 1.15) : 3}px` }}
+                      title={`${reg.region}: B2B ${reg.b2bCount} ta, B2C ${reg.b2cCount} ta, Foydalanuvchi ${reg.customersCount} ta`}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <button
-              type="button"
-              onClick={onNavigateToLogistics}
-              className="text-xs font-mono font-bold text-[#FFB800] hover:text-[#FFC928] flex items-center gap-1 cursor-pointer hover:underline"
-            >
-              <span>Barchasi →</span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {fleetTrips.map((trip) => (
-              <div 
-                key={trip.name}
-                className="p-3.5 rounded-xl bg-[#151719] border border-[#51504A] hover:border-[#FFB800]/50 transition-colors flex items-center justify-between gap-3"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-xl">{trip.icon}</span>
-                  <div>
-                    <h4 className="font-black text-xs sm:text-sm text-[#F5F5F2]">
-                      {trip.name}
-                    </h4>
-                    <div className="text-[11px] text-[#B8B8B3] flex items-center gap-2 mt-0.5">
-                      <span className="text-emerald-400 font-bold flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                        {trip.status}
-                      </span>
-                      <span>·</span>
-                      <span>{trip.trips}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0">
-                  <span className="text-xs sm:text-sm font-mono font-black text-[#FFB800] bg-[#FFB800]/10 px-2 py-1 rounded-lg border border-[#FFB800]/30 block">
-                    {trip.volume}
+            <div className="flex items-center justify-between gap-2 pt-2 px-1">
+              {regionalDemands.map((reg) => (
+                <div key={reg.region} className="flex-1 text-center">
+                  <span
+                    className="text-[9px] font-bold text-sky-200 block truncate"
+                    title={reg.region}
+                  >
+                    {reg.region.replace(' viloyati', '').replace(' Resp.', '')}
                   </span>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
-      </div>
-
-      {/* =========================================================================
-          HUDUDLAR BO'YICHA TALAB (O'ZBEKISTON)
-          ========================================================================= */}
-      <div className="bg-[#222528] border border-[#51504A] rounded-2xl p-6 sm:p-7 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between pb-3 border-b border-[#51504A]">
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-[#F5F5F2] flex items-center gap-2">
-              <MapPin className="w-5 h-5 text-[#FFB800]" />
-              <span>Hududlar bo'yicha Talab</span>
-            </h3>
-            <p className="text-xs text-[#B8B8B3]">Yetkazib berilgan va amaldagi qurilish obyektlari taqsimoti</p>
-          </div>
-          <span className="text-xs font-mono font-bold text-[#FFB800] px-2.5 py-1 rounded-lg bg-[#151719] border border-[#51504A]">
-            O'zbekiston
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        {/* 14 ta Hudud Kartalari: B2B kabinetlar, B2C kabinetlar, Foydalanuvchi kabinetlar va Savdo aylanmasi */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
           {regionalDemands.map((reg) => (
             <div
               key={reg.region}
-              className="p-4 rounded-xl bg-[#151719] border border-[#51504A] hover:border-[#FFB800]/50 transition-colors space-y-2 text-center sm:text-left"
+              className="p-4 rounded-xl bg-[#071326] border border-[#1E3A6D] hover:border-[#FFB800]/60 transition-colors space-y-2.5"
             >
-              <div className="flex items-center justify-between text-xs font-bold text-[#F5F5F2]">
+              <div className="flex items-center justify-between text-xs font-bold text-white">
                 <span className="truncate">{reg.region}</span>
-                <span className="text-[#FFB800] font-mono font-black">{reg.share}</span>
+                <span className="text-[#FFB800] font-mono font-black">{reg.sharePct}%</span>
               </div>
-              <div className="text-sm font-black font-mono text-[#F5F5F2]">
-                {reg.orders}
+
+              <div className="flex items-center justify-between text-[11px] font-mono text-sky-200">
+                <span>Jami kabinetlar: <strong className="text-white">{reg.totalCabinets} ta</strong></span>
+                <span>Talab: <strong className="text-[#FFB800]">{reg.ordersCount} ta</strong></span>
               </div>
-              <div className="w-full h-1.5 rounded-full bg-[#292C2F] overflow-hidden">
+
+              <div className="text-[11px] font-mono text-sky-200">
+                Savdo aylanmasi: <span className="text-white font-bold">{formatSum(reg.salesUzs)}</span>
+              </div>
+
+              {/* Viloyatdagi B2B, B2C va Foydalanuvchi kabinetlar soni */}
+              <div className="pt-2 border-t border-[#1E3A6D] grid grid-cols-3 gap-1.5 text-[10px]">
+                <div className="p-2 rounded-lg bg-[#0A1931] border border-[#FFB800]/40 flex flex-col">
+                  <span className="text-sky-200 truncate">B2B:</span>
+                  <span className="font-mono font-black text-[#FFB800] text-xs mt-0.5">
+                    {reg.b2bCount} ta
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-[#0A1931] border border-emerald-400/40 flex flex-col">
+                  <span className="text-sky-200 truncate">B2C:</span>
+                  <span className="font-mono font-black text-emerald-400 text-xs mt-0.5">
+                    {reg.b2cCount} ta
+                  </span>
+                </div>
+                <div className="p-2 rounded-lg bg-[#0A1931] border border-blue-400/40 flex flex-col">
+                  <span className="text-sky-200 truncate">Mijoz:</span>
+                  <span className="font-mono font-black text-blue-400 text-xs mt-0.5">
+                    {reg.customersCount} ta
+                  </span>
+                </div>
+              </div>
+
+              <div className="w-full h-2 rounded-full bg-[#0A1931] overflow-hidden">
                 <div
-                  className={`h-full ${reg.color} rounded-full`}
-                  style={{ width: reg.share }}
+                  className={`h-full ${reg.color} rounded-full transition-all duration-700`}
+                  style={{ width: `${reg.barPct > 0 ? Math.max(4, reg.barPct) : 0}%` }}
                 />
               </div>
             </div>
           ))}
         </div>
       </div>
-
-      {/* =========================================================================
-          BUNKER ASOSIY BO'LIMLARIGA TEZKOR O'TISH
-          ========================================================================= */}
-      <div className="space-y-4 pt-2">
-        <div className="flex items-center gap-2 text-sm font-mono font-bold uppercase tracking-wider text-[#FFB800]">
-          <Sparkles className="w-4 h-4 text-[#FFB800]" />
-          <span>BUNKER ASOSIY BO'LIMLARIGA TEZKOR O'TISH</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          
-          {/* Card 1: Bunker — Qurilish Mollari */}
-          <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-2xl p-6 shadow-2xl flex flex-col justify-between transition-all group">
-            <div className="space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-[#151719] border border-[#51504A] group-hover:border-[#FFB800] flex items-center justify-center text-[#FFB800]">
-                <Package className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-black text-[#F5F5F2] group-hover:text-[#FFB800] transition-colors">
-                Bunker — Qurilish Mollari
-              </h3>
-              <p className="text-xs text-[#B8B8B3] leading-relaxed">
-                M400 / M500 Sement, A500C Armatura, gazoblok, g'isht va quruq qurilish qorishmalari katalogi.
-              </p>
-            </div>
-
-            <div className="pt-5">
-              <button
-                type="button"
-                onClick={onNavigateToCatalog}
-                className="btn-industrial-yellow w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md group-hover:scale-102 transition-transform"
-              >
-                <span>Bo'limni ochish</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Card 2: Logistika — Og'ir Texnika Floti */}
-          <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-2xl p-6 shadow-2xl flex flex-col justify-between transition-all group">
-            <div className="space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-[#151719] border border-[#51504A] group-hover:border-[#FFB800] flex items-center justify-center text-[#FFB800]">
-                <Truck className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-black text-[#F5F5F2] group-hover:text-[#FFB800] transition-colors">
-                Logistika — Og'ir Texnika Floti
-              </h3>
-              <p className="text-xs text-[#B8B8B3] leading-relaxed">
-                Samosvallar, avtokran-manipulyatorlar, HOWO mikserlar va tezkor avtotransport kalkulyatori.
-              </p>
-            </div>
-
-            <div className="pt-5">
-              <button
-                type="button"
-                onClick={onNavigateToLogistics}
-                className="btn-industrial-yellow w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md group-hover:scale-102 transition-transform"
-              >
-                <span>Bo'limni ochish</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          {/* Card 3: Global Bunker — Xalqaro Klaster */}
-          <div className="bg-[#222528] border border-[#51504A] hover:border-[#FFB800] rounded-2xl p-6 shadow-2xl flex flex-col justify-between transition-all group">
-            <div className="space-y-2.5">
-              <div className="w-10 h-10 rounded-xl bg-[#151719] border border-[#51504A] group-hover:border-[#FFB800] flex items-center justify-center text-[#FFB800]">
-                <Globe className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg font-black text-[#F5F5F2] group-hover:text-[#FFB800] transition-colors">
-                Global Bunker — Xalqaro Klaster
-              </h3>
-              <p className="text-xs text-[#B8B8B3] leading-relaxed">
-                Qozog'iston, Rossiya, Turkiya va Xitoy yirik sanoat ishlab chiqaruvchilari bilan to'g'ridan-to'g'ri import.
-              </p>
-            </div>
-
-            <div className="pt-5">
-              <button
-                type="button"
-                onClick={onNavigateToGlobal}
-                className="btn-industrial-yellow w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-md group-hover:scale-102 transition-transform"
-              >
-                <span>Bo'limni ochish</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-        </div>
-      </div>
-
-      {/* =========================================================================
-          FOOTER: ADMIN KABINETI UCHUN TALAB QILINGAN KENGAYTIRILGAN MAZMUN
-          ========================================================================= */}
-      <footer className="mt-12 pt-10 border-t border-[#51504A] bg-[#1a1c1e] -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pb-10 space-y-8 rounded-b-2xl">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          
-          {/* Col 1: Brand & Desc */}
-          <div className="space-y-3">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#222528] border border-[#51504A] text-[#FFB800] flex items-center justify-center">
-                <HardHat className="w-4 h-4" />
-              </div>
-              <span className="text-xl font-black tracking-wider">
-                <span className="text-[#FFB800]">BUNKER</span> <span className="text-[#F5F5F2]">STROY</span>
-              </span>
-            </div>
-            <p className="text-xs text-[#B8B8B3] leading-relaxed">
-              O‘zbekistonda qurilish mollari savdosi, maxsus og‘ir texnika logistikasi va xalqaro import xomashyo ta’minotini birlashtiruvchi sanoat platformasi.
-            </p>
-          </div>
-
-          {/* Col 2: Asosiy Bo'limlar */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#FFB800]">
-              Asosiy Bo'limlar
-            </h4>
-            <ul className="space-y-2 text-xs text-[#B8B8B3]">
-              <li>
-                <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="hover:text-[#FFB800] transition-colors cursor-pointer text-left">
-                  Bunker Statistikasi (Asosiy)
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={onNavigateToCatalog} className="hover:text-[#FFB800] transition-colors cursor-pointer text-left">
-                  Bunker — Qurilish Mollari
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={onNavigateToLogistics} className="hover:text-[#FFB800] transition-colors cursor-pointer text-left">
-                  Logistika — Og'ir Texnika Floti
-                </button>
-              </li>
-              <li>
-                <button type="button" onClick={onNavigateToGlobal} className="hover:text-[#FFB800] transition-colors cursor-pointer text-left">
-                  Global Bunker — Xalqaro Import
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 3: Sertifikatlar */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#FFB800]">
-              Sertifikatlar
-            </h4>
-            <ul className="space-y-2 text-xs text-[#B8B8B3]">
-              <li className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                <span>M500 / A500C Laboratoriya Kafolati</span>
-              </li>
-              <li className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
-                <span>Samosval & Manipulyatorlar 100% Shay</span>
-              </li>
-              <li className="flex items-center gap-1.5">
-                <Globe className="w-3.5 h-3.5 text-blue-400 shrink-0" />
-                <span>Xalqaro Zavod Shartnomalari</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Col 4: Aloqa & Boshqaruv */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-mono font-bold uppercase tracking-wider text-[#FFB800]">
-              Aloqa & Boshqaruv
-            </h4>
-            <div className="space-y-2 text-xs text-[#B8B8B3]">
-              <p className="flex items-start gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-[#FFB800] shrink-0 mt-0.5" />
-                <span>Toshkent sh., Sergeli tumani, Qurilish klasteri</span>
-              </p>
-              <p className="flex items-center gap-1.5">
-                <Phone className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
-                <a href="tel:+998712000050" className="hover:text-[#F5F5F2] font-mono">
-                  +998 (71) 200-00-50
-                </a>
-              </p>
-              <p className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
-                <a href="mailto:info@bunkerstroy.uz" className="hover:text-[#F5F5F2] font-mono">
-                  info@bunkerstroy.uz
-                </a>
-              </p>
-
-              {onNavigateToAdmin && (
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={onNavigateToAdmin}
-                    className="w-full py-2 px-3 rounded-lg bg-[#222528] hover:bg-[#292C2F] text-[#FFB800] border border-[#FFB800]/50 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                  >
-                    <HardHat className="w-3.5 h-3.5" />
-                    <span>Admin Kabinetiga O'tish</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
-
-        <div className="pt-6 border-t border-[#51504A] text-center text-xs text-[#B8B8B3] flex flex-col sm:flex-row items-center justify-between gap-3 font-mono">
-          <span>© 2026 BunkerStroy. Sanoat Qurilish & Logistika Platformasi.</span>
-          <span className="text-[#FFB800] font-bold">TOSHKENT · UZBEKISTAN</span>
-        </div>
-      </footer>
-
     </div>
   );
 };

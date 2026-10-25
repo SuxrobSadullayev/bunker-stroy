@@ -1,236 +1,209 @@
-import React, { useState } from 'react';
-import { Truck, Phone, Navigation, Clock, CheckCircle2, AlertCircle, Compass, Calculator } from 'lucide-react';
-import { LogisticsVehicle } from '../types';
-import { INITIAL_VEHICLES } from '../data/mockData';
+import React, { useState, useEffect } from 'react';
+import {
+  Building2,
+  Factory,
+  ShieldCheck,
+  Users,
+  ShoppingBag,
+  Layers,
+  CheckCircle2,
+  MapPin
+} from 'lucide-react';
+import {
+  RealTelegramLogo,
+  RealInstagramLogo,
+  RealYouTubeLogo,
+  RealPhoneLogo
+} from './SocialLogos';
+import { getAdminConfig, AdminConfig } from '../lib/adminSettings';
 
 export const LogisticsHub: React.FC = () => {
-  const [vehicles] = useState<LogisticsVehicle[]>(INITIAL_VEHICLES);
-  const [selectedVehicle, setSelectedVehicle] = useState<LogisticsVehicle>(INITIAL_VEHICLES[0]);
-  const [distanceKm, setDistanceKm] = useState<number>(25);
-  const [weightTons, setWeightTons] = useState<number>(15);
-  const [origin, setOrigin] = useState<string>('Keles daryosi qum karyeri');
-  const [destination, setDestination] = useState<string>('Toshkent sh., Yunusobod 14-mavze, yangi turar joy');
-  const [dispatchedSuccess, setDispatchedSuccess] = useState<boolean>(false);
+  const [adminConfig, setAdminConfig] = useState<AdminConfig>(() => getAdminConfig());
 
-  const calculateCost = () => {
-    return selectedVehicle.basePrice + distanceKm * selectedVehicle.pricePerKm;
-  };
+  useEffect(() => {
+    const syncConfig = () => setAdminConfig(getAdminConfig());
+    window.addEventListener('bunkerstroy_admin_config_updated', syncConfig);
+    window.addEventListener('storage', syncConfig);
+    return () => {
+      window.removeEventListener('bunkerstroy_admin_config_updated', syncConfig);
+      window.removeEventListener('storage', syncConfig);
+    };
+  }, []);
 
-  const formatPrice = (p: number) => new Intl.NumberFormat('uz-UZ').format(p) + " so'm";
+  const tgUrl = adminConfig.telegram
+    ? adminConfig.telegram.startsWith('http')
+      ? adminConfig.telegram
+      : `https://t.me/${adminConfig.telegram.replace(/^@/, '')}`
+    : 'https://t.me/bunkerstroy_uz';
 
-  const handleBookVehicle = () => {
-    setDispatchedSuccess(true);
-    setTimeout(() => setDispatchedSuccess(false), 4000);
-  };
+  const igUrl = adminConfig.instagram
+    ? adminConfig.instagram.startsWith('http')
+      ? adminConfig.instagram
+      : `https://instagram.com/${adminConfig.instagram.replace(/^@/, '')}`
+    : 'https://instagram.com/bunkerstroy.uz';
+
+  const ytUrl = adminConfig.youtube
+    ? adminConfig.youtube.startsWith('http')
+      ? adminConfig.youtube
+      : `https://youtube.com/${adminConfig.youtube}`
+    : 'https://youtube.com/@bunkerstroy';
+
+  const phoneClean = (adminConfig.phone || '+998 (71) 200-00-50').replace(/[^0-9+]/g, '');
 
   return (
-    <div className="space-y-8 pb-12">
-      
-      {/* Header */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-6 sm:p-8 rounded-3xl border border-amber-500/30">
-        <div className="max-w-3xl space-y-3">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold">
-            <Truck className="w-4 h-4" />
-            BunkerStroy Maxsus Qurilish Texnikalari & Yuk Logistikasi
-          </div>
-          <h1 className="text-2xl sm:text-4xl font-black text-white">
-            Qurilish Maydonlariga Og'ir Yuk & Texnika Yetkazib Berish
-          </h1>
-          <p className="text-slate-300 text-xs sm:text-sm leading-relaxed">
-            Samosvallar, avtokran-manipulyatorlar, beton mikserlari va tezkor Gazellar.
-            Yuk ko'tarish me'yorlariga rioya qilingan holda, GPS monitoring ostida real vaqtda harakatlanadi.
+    <div className="max-w-5xl mx-auto space-y-6 pb-12 text-white">
+      {/* Asosiy sarlavha bloki (Tyomniy Siniy) */}
+      <div className="bg-gradient-to-br from-[#0A1931] via-[#0F2547] to-[#071326] p-6 sm:p-8 rounded-2xl border-2 border-[#1E3A6D] shadow-xl space-y-4">
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-[#132C54] border border-[#2E5A9C] text-[#FFB800] text-xs font-black uppercase tracking-wider font-mono">
+          <Building2 className="w-4 h-4 text-[#FFB800]" />
+          <span>Biz Haqimizda • B2B2C Platforma</span>
+        </div>
+
+        <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white leading-tight">
+          BunkerStroy: qurilish mahsulotlarining onlayn savdo markazi
+        </h1>
+
+        <p className="text-sky-100 text-sm sm:text-base leading-relaxed font-medium max-w-3xl">
+          BunkerStroy’da ta’minotchilarni bir savdo maydonida jamladik: narxlarni solishtirasiz, shartlarni ko‘rasiz, buyurtmani bir joydan berasiz.
+        </p>
+      </div>
+
+      {/* Bu yerda kim bor */}
+      <div className="bg-[#0A1931] p-6 sm:p-8 rounded-2xl border-2 border-[#1E3A6D] shadow-xl space-y-6">
+        <div className="space-y-2 border-b border-[#1E3A6D] pb-4">
+          <h2 className="text-lg sm:text-xl font-black text-[#FFB800] flex items-center gap-2.5">
+            <Layers className="w-5 h-5 text-[#FFB800]" />
+            <span>Bu yerda kim bor</span>
+          </h2>
+          <p className="text-sky-100 text-xs sm:text-sm leading-relaxed font-semibold">
+            BunkerStroy mahsulotni o‘zi sotmaydi. U ta’minotchilarni va ularning mijozlarini uchrashtiradigan savdo maydoni.
           </p>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* B2B */}
+          <div className="p-5 rounded-xl bg-[#0F2547] border border-[#254B85] space-y-2.5 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FFB800] text-black flex items-center justify-center shrink-0 shadow">
+                <Factory className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <span className="text-[11px] font-mono font-black uppercase text-[#FFB800] block">
+                  Ta’minotchilar • B2B yo‘nalish
+                </span>
+                <h3 className="text-sm sm:text-base font-black text-white">
+                  Ishlab chiqaruvchi zavodlar (B2B)
+                </h3>
+              </div>
+            </div>
+            <p className="text-xs sm:text-sm text-sky-100 leading-relaxed font-medium">
+              Katta hajm, zavod narxi. Pudratchi va tashkilotlar uchun.
+            </p>
+          </div>
+
+          {/* B2C */}
+          <div className="p-5 rounded-xl bg-[#0F2547] border border-[#254B85] space-y-2.5 shadow-md">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FFB800] text-black flex items-center justify-center shrink-0 shadow">
+                <ShoppingBag className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <span className="text-[11px] font-mono font-black uppercase text-[#FFB800] block">
+                  Ta’minotchilar • B2C yo‘nalish
+                </span>
+                <h3 className="text-sm sm:text-base font-black text-white">
+                  Xaridorlarga sotadigan ta’minotchilar (B2C)
+                </h3>
+              </div>
+            </div>
+            <p className="text-xs sm:text-sm text-sky-100 leading-relaxed font-medium">
+              Uyingizdagi ta’mir yoki kichik qurilish uchun kerakli miqdorda.
+            </p>
+          </div>
+        </div>
+
+        {/* Mahsulot kafolati va aniqlik */}
+        <div className="p-4 sm:p-5 rounded-xl bg-[#071326] border border-[#FFB800]/50 flex items-start gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-[#FFB800]/15 border border-[#FFB800]/40 text-[#FFB800] flex items-center justify-center shrink-0 mt-0.5">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-xs sm:text-sm font-black text-[#FFB800] uppercase tracking-wider font-mono">
+              Mahsulot kafolati va aniqlik
+            </h4>
+            <p className="text-xs sm:text-sm text-white leading-relaxed font-semibold">
+              Mahsulot kafolati va aniqlik ma’lumotlari mahsulot tavsifida kiritilgan va tavsif uchun Ta’minotchi kafolati mavjud.
+            </p>
+          </div>
+        </div>
       </div>
 
-      {/* Calculator & Booking Form */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Left: Vehicle selection & parameters */}
-        <div className="lg:col-span-7 bg-slate-800/80 p-6 rounded-3xl border border-slate-700/80 space-y-6">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Calculator className="w-5 h-5 text-amber-400" />
-            Yuk Tashish Narxini Hisoblang & Texnika Buyurtma Qiling
-          </h2>
-
-          {/* Vehicle cards */}
-          <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              1. Maxsus Texnika Turini Tanlang:
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {vehicles.map((v) => (
-                <div
-                  key={v.id}
-                  onClick={() => setSelectedVehicle(v)}
-                  className={`p-3.5 rounded-2xl cursor-pointer border transition-all flex items-center gap-3 ${
-                    selectedVehicle.id === v.id
-                      ? 'bg-amber-500/15 border-amber-400 text-white shadow-lg shadow-amber-500/10'
-                      : 'bg-slate-900/60 border-slate-700/70 text-slate-300 hover:bg-slate-900'
-                  }`}
-                >
-                  <img src={v.image} alt={v.name} className="w-16 h-16 rounded-xl object-cover shrink-0" />
-                  <div className="min-w-0">
-                    <h4 className="text-xs font-bold truncate text-white">{v.name}</h4>
-                    <p className="text-[11px] text-amber-400 font-semibold">{v.capacityTons} tonnagacha</p>
-                    <p className="text-[10px] text-slate-400">{formatPrice(v.pricePerKm)} / km</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Route inputs */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center gap-1">
-                <Navigation className="w-3.5 h-3.5 text-amber-400" /> Yuk ortish manzili:
-              </label>
-              <input
-                type="text"
-                value={origin}
-                onChange={(e) => setOrigin(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-slate-300 flex items-center gap-1">
-                <Navigation className="w-3.5 h-3.5 text-emerald-400" /> Yetkazish (ob'ekt) manzili:
-              </label>
-              <input
-                type="text"
-                value={destination}
-                onChange={(e) => setDestination(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white text-xs focus:outline-none focus:border-amber-500"
-              />
-            </div>
-          </div>
-
-          {/* Distance and Weight Sliders */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 bg-slate-900/60 p-4 rounded-2xl border border-slate-700/60">
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Taxminiy masofa:</span>
-                <span className="font-bold text-amber-400">{distanceKm} km</span>
-              </div>
-              <input
-                type="range"
-                min="5"
-                max="150"
-                value={distanceKm}
-                onChange={(e) => setDistanceKm(Number(e.target.value))}
-                className="w-full accent-amber-500 cursor-pointer"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-slate-400">Yuk og'irligi:</span>
-                <span className="font-bold text-amber-400">{weightTons} tonna</span>
-              </div>
-              <input
-                type="range"
-                min="1"
-                max={selectedVehicle.capacityTons}
-                value={weightTons}
-                onChange={(e) => setWeightTons(Number(e.target.value))}
-                className="w-full accent-amber-500 cursor-pointer"
-              />
-            </div>
-          </div>
-
-          {/* Summary and booking action */}
-          <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <div className="text-xs text-slate-400">Jami transport xarajati:</div>
-              <div className="text-2xl font-black text-amber-400">{formatPrice(calculateCost())}</div>
-              <div className="text-[11px] text-slate-400">Bazaviy to‘lov + {distanceKm} km x {formatPrice(selectedVehicle.pricePerKm)}</div>
-            </div>
-
-            <button
-              onClick={handleBookVehicle}
-              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all"
+      {/* Ijtimoiy tarmoqlar va pastidan Aloqa uchun (Real logolar bilan) */}
+      <div className="bg-[#0A1931] p-6 sm:p-8 rounded-2xl border-2 border-[#1E3A6D] shadow-xl space-y-6">
+        {/* 1. Ijtimoiy tarmoqlar: Telegram, Instagram, YouTube */}
+        <div className="space-y-3">
+          <h3 className="text-sm sm:text-base font-black text-[#FFB800] uppercase tracking-wider font-mono">
+            Ijtimoiy tarmoqlar
+          </h3>
+          <div className="flex items-center gap-4">
+            <a
+              href={tgUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Telegram"
+              aria-label="Telegram"
             >
-              Texnikani Ob'ektga Chaqirish
-            </button>
-          </div>
+              <RealTelegramLogo className="w-12 h-12" />
+            </a>
 
-          {dispatchedSuccess && (
-            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs animate-fadeIn">
-              <CheckCircle2 className="w-5 h-5 shrink-0" />
-              <span>Buyurtma qabul qilindi! Haydovchi {selectedVehicle.driverName} tez orada ob'ektga yo'l oladi.</span>
-            </div>
-          )}
+            <a
+              href={igUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Instagram"
+              aria-label="Instagram"
+            >
+              <RealInstagramLogo className="w-12 h-12" />
+            </a>
 
-        </div>
-
-        {/* Right: Live Fleet & Tracking Card */}
-        <div className="lg:col-span-5 space-y-5">
-          <div className="bg-slate-800/80 p-6 rounded-3xl border border-slate-700/80 space-y-5">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Compass className="w-5 h-5 text-amber-400" />
-              Navbatchi Haydovchi & Texnika Kartasi
-            </h3>
-
-            <div className="relative h-44 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700">
-              <img src={selectedVehicle.image} alt={selectedVehicle.name} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
-              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
-                <div>
-                  <span className="text-xs px-2 py-0.5 rounded bg-amber-500 text-slate-950 font-bold">
-                    Faol holatda
-                  </span>
-                  <h4 className="text-sm font-bold text-white mt-1">{selectedVehicle.name}</h4>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-slate-300">Hozirgi manzil:</span>
-                  <p className="text-xs font-semibold text-amber-400">{selectedVehicle.currentLocation}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 text-xs">
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="text-slate-400">Mas'ul Haydovchi:</span>
-                <span className="font-semibold text-white">{selectedVehicle.driverName}</span>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="text-slate-400">Aloqa:</span>
-                <a href={`tel:${selectedVehicle.phone}`} className="font-semibold text-amber-400 flex items-center gap-1 hover:underline">
-                  <Phone className="w-3.5 h-3.5" /> {selectedVehicle.phone}
-                </a>
-              </div>
-              <div className="flex items-center justify-between text-slate-300">
-                <span className="text-slate-400">Yuk hajmi:</span>
-                <span className="font-semibold text-white">{selectedVehicle.capacityTons} tonnagacha</span>
-              </div>
-            </div>
-
-            {/* Live Timeline status preview */}
-            <div className="space-y-2 pt-2 border-t border-slate-700/60">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Yuk Yetkazish Bosqichlari:</span>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2.5 text-emerald-400 font-semibold">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
-                  <span>1. Texnika tayyor & marshrut belgilandi</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-slate-400">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
-                  <span>2. Karyer / Zavoddan material yuklash</span>
-                </div>
-                <div className="flex items-center gap-2.5 text-slate-400">
-                  <div className="w-2.5 h-2.5 rounded-full bg-slate-600"></div>
-                  <span>3. Ob'ektga yetkazish va tushirish</span>
-                </div>
-              </div>
-            </div>
-
+            <a
+              href={ytUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="YouTube"
+              aria-label="YouTube"
+            >
+              <RealYouTubeLogo className="w-12 h-12" />
+            </a>
           </div>
         </div>
 
+        {/* 2. Pastidan Aloqa uchun: Telefon va Telegram logosi */}
+        <div className="space-y-3 pt-5 border-t border-[#1E3A6D]">
+          <h3 className="text-sm sm:text-base font-black text-[#FFB800] uppercase tracking-wider font-mono">
+            Aloqa uchun
+          </h3>
+          <div className="flex items-center gap-4">
+            <a
+              href={`tel:${phoneClean}`}
+              title={`Telefon: ${adminConfig.phone || '+998 (71) 200-00-50'}`}
+              aria-label="Telefon"
+            >
+              <RealPhoneLogo className="w-12 h-12" />
+            </a>
+
+            <a
+              href={tgUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Telegram orqali aloqa"
+              aria-label="Telegram orqali aloqa"
+            >
+              <RealTelegramLogo className="w-12 h-12" />
+            </a>
+          </div>
+        </div>
       </div>
-
     </div>
   );
 };

@@ -87,5 +87,5 @@ export class IpRateLimiter {
   }
 }
 
-// STIR qidirish uchun daqiqasiga 5 ta so'rov limitli middleware
-export const stirRateLimiter = new IpRateLimiter(5, 60 * 1000);
+// STIR qidirish uchun daqiqasiga 60 ta so'rov limitli middleware
+export const stirRateLimiter = new IpRateLimiter(60, 60 * 1000);

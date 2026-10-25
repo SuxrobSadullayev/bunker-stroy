@@ -206,24 +206,37 @@ export function RealPhoneLogo({ className = "w-10 h-10" }: { className?: string 
 }
 
 /**
- * Haqiqiy rasmiy YouTube ilova logosi
+ * Haqiqiy rasmiy YouTube App logosi (iOS / Android ilova belgisi)
+ * Oq squircle ilova foni va markazda 100% original YouTube qizil ekrani (#FF0000) + oq Play uchburchagi
  */
 export function RealYouTubeLogo({ className = "w-10 h-10" }: { className?: string }) {
   return (
     <div
-      className={`${className} relative rounded-[22.5%] flex items-center justify-center shrink-0 shadow-md select-none transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer overflow-hidden bg-[#FF0000] group tovlanish-container hover:shadow-[0_0_24px_#FF0000,0_0_36px_rgba(255,0,0,0.55)]`}
+      className={`${className} relative rounded-[22.5%] flex items-center justify-center shrink-0 shadow-md select-none transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer overflow-hidden bg-white group tovlanish-container hover:shadow-[0_0_24px_#FF0000,0_0_38px_rgba(255,0,0,0.65)]`}
       title="YouTube"
     >
       <svg
         viewBox="0 0 240 240"
-        className="w-full h-full p-2.5 relative z-0"
+        className="w-full h-full relative z-0"
         xmlns="http://www.w3.org/2000/svg"
       >
+        {/* YouTube App oq squircle foni */}
+        <rect width="240" height="240" rx="54" fill="#FFFFFF" />
+
+        {/* Rasmiy YouTube qizil ekrani (100% original nisbat va shakl) */}
         <path
-          fill="#ffffff"
-          d="M234.98 61.86a30.16 30.16 0 0 0-21.22-21.36C195.05 35.45 120 35.45 120 35.45s-75.05 0-93.77 5.05A30.17 30.17 0 0 0 5.02 61.86C0 80.7 0 120 0 120s0 39.3.502 58.14a30.16 30.16 0 0 0 21.22 21.36c18.71 5.05 93.76 5.05 93.76 5.05s75.05 0 93.77-5.05a30.15 30.15 0 0 0 21.22-21.36C240 159.3 240 120 240 120s0-39.3-.502-58.14zM95.45 155.68V84.32L158.18 120l-62.73 35.68z"
+          fill="#FF0000"
+          d="M206.4 81.4c-2.1-7.8-8.2-13.9-16-16C176.3 61.6 120 61.6 120 61.6s-56.3 0-70.4 3.8c-7.8 2.1-13.9 8.2-16 16C29.8 95.5 29.8 120 29.8 120s0 24.5 3.8 38.6c2.1 7.8 8.2 13.9 16 16 14.1 3.8 70.4 3.8 70.4 3.8s56.3 0 70.4-3.8c7.8-2.1 13.9-8.2 16-16 3.8-14.1 3.8-38.6 3.8-38.6s0-24.5-3.8-38.6z"
+        />
+
+        {/* Markaziy oq YouTube Play uchburchagi */}
+        <polygon
+          fill="#FFFFFF"
+          points="102,145 102,95 149,120"
         />
       </svg>
+
+      {/* Sichqoncha tekkanda tovlanuvchi nur chizig'i (Sheen Sweep) */}
       <div className="tovlanish-sheen" />
     </div>
   );

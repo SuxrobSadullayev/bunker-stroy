@@ -11,11 +11,13 @@ import {
   ArrowLeft,
   Check,
   ChevronRight,
+  X,
 } from 'lucide-react';
 import { CartItem, UserProfile } from '../types';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { CheckoutModal } from './CheckoutModal';
+import { getColorPaletteItem } from './SupplierCabinet';
 
 interface CartModalProps {
   isOpen: boolean;
@@ -25,8 +27,9 @@ interface CartModalProps {
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   user: UserProfile | null;
-  onOpenAuth: () => void;
+  onOpenAuth: (mode?: 'login' | 'register') => void;
   onOrderSuccess: (orderId: string) => void;
+  onUserUpdate?: (updatedUser: UserProfile) => void;
 }
 
 export const CartModal: React.FC<CartModalProps> = ({
@@ -39,12 +42,14 @@ export const CartModal: React.FC<CartModalProps> = ({
   user,
   onOpenAuth,
   onOrderSuccess,
+  onUserUpdate,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -57,7 +62,7 @@ export const CartModal: React.FC<CartModalProps> = ({
 
   const handleStartCheckout = () => {
     if (!user) {
-      onOpenAuth();
+      onOpenAuth('register');
       return;
     }
     if (items.length === 0) return;
@@ -66,11 +71,20 @@ export const CartModal: React.FC<CartModalProps> = ({
 
   const handleCreateOrder = async () => {
     if (!user) {
-      onOpenAuth();
+      onOpenAuth('register');
       return;
     }
 
     if (items.length === 0) return;
+
+    // Ombor qoldig'ini tekshirish
+    for (const item of items) {
+      const avail = typeof item.product.stock === 'number' ? Math.max(0, item.product.stock) : 0;
+      if (item.quantity > avail) {
+        setError(`«${item.product.title}» — Ombordagi miqdor yetarli emas! (Omborda mavjud: ${avail} ${item.product.unit})`);
+        return;
+      }
+    }
 
     setLoading(true);
     setError(null);
@@ -87,6 +101,9 @@ export const CartModal: React.FC<CartModalProps> = ({
         quantity: i.quantity,
         unit: i.product.unit,
         price: i.product.price,
+        supplierId: i.product.supplierId,
+        supplierInn: i.product.supplierInn,
+        supplierName: i.product.supplierName,
       })),
       totalAmount: grandTotal,
       status: 'pending',
@@ -106,6 +123,28 @@ export const CartModal: React.FC<CartModalProps> = ({
         const ordersList = savedOrders ? JSON.parse(savedOrders) : [];
         ordersList.unshift(orderData);
         localStorage.setItem('bunkerstroy_orders', JSON.stringify(ordersList));
+
+        // Sotilgan mahsulotlarni ombor qoldig'idan ayirish
+        const savedProds = localStorage.getItem('bunkerstroy_products');
+        if (savedProds) {
+          const prodsList = JSON.parse(savedProds);
+          if (Array.isArray(prodsList)) {
+            const updatedProds = prodsList.map((p: any) => {
+              const orderedItem = items.find((it) => it.product.id === p.id);
+              if (!orderedItem) return p;
+              const nextSales = (Number(p.salesCount) || 0) + orderedItem.quantity;
+              const nextStock = Math.max(0, (Number(p.stock) || 0) - orderedItem.quantity);
+              setDoc(doc(db, 'products', p.id), { stock: nextStock, salesCount: nextSales }, { merge: true }).catch(() => {});
+              return {
+                ...p,
+                salesCount: nextSales,
+                stock: nextStock,
+              };
+            });
+            localStorage.setItem('bunkerstroy_products', JSON.stringify(updatedProds));
+            window.dispatchEvent(new CustomEvent('bunkerstroy_products_updated'));
+          }
+        }
 
         // Moliyaviy kirim operatsiyasi yaratish
         const savedTx = localStorage.getItem('bunkerstroy_transactions');
@@ -174,26 +213,26 @@ export const CartModal: React.FC<CartModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 bg-black/85 backdrop-blur-sm animate-fadeIn">
-      {/* Katta ekranni egallovchi Buyurtma Berish Bunkeri */}
-      <div className="bg-[#151719] rounded-2xl max-w-6xl xl:max-w-7xl 2xl:max-w-[95vw] w-full max-h-[96vh] h-[92vh] flex flex-col shadow-2xl overflow-hidden border border-[#51504A] text-[#F5F5F2]">
+    <div className="fixed inset-0 z-50 w-screen h-screen bg-white flex flex-col overflow-hidden text-black animate-fadeIn">
+      {/* To'liq ekranni (Full Screen Oq Fon) egallovchi Buyurtma Berish Savati */}
+      <div className="bg-white w-full h-full flex flex-col overflow-hidden text-black">
         
-        {/* Header: Brushed Steel Header */}
-        <div className="px-6 sm:px-8 py-4 border-b border-[#51504A] flex items-center justify-between bg-[#1D2023] text-[#F5F5F2]">
+        {/* Header: Tyomniy Siniy Header */}
+        <div className="px-6 sm:px-8 py-4 border-b-2 border-[#1E3A6D] flex items-center justify-between bg-gradient-to-r from-[#0A1931] to-[#071326] text-white shadow-md">
           <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-[#222528] text-[#FFB800] border border-[#51504A]">
+            <div className="p-2.5 rounded-lg bg-[#0F2547] text-[#FFB800] border border-[#254B85]">
               <HardHat className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl sm:text-2xl font-bold text-[#F5F5F2] tracking-wide">
+                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-wide">
                   Bunkerdagi Materiallar
                 </h2>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#222528] text-[#FFB800] border border-[#51504A]">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#0F2547] text-[#FFB800] border border-[#254B85]">
                   BUNKERSTROY
                 </span>
               </div>
-              <p className="text-[11px] text-[#B8B8B3] mt-0.5">
+              <p className="text-[11px] text-sky-200 mt-0.5">
                 Tanlangan mahsulotlar bu yerda buyurtma qilish uchun. Sonini qo'shish, ko'paytirish yoki kamaytirish imkoni.
               </p>
             </div>
@@ -201,31 +240,31 @@ export const CartModal: React.FC<CartModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-[#B8B8B3] hover:text-[#F5F5F2] p-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] transition-all cursor-pointer shadow-sm"
+            className="text-white hover:bg-red-600 p-2 rounded-lg bg-[#132C54] border border-[#2E5A9C] transition-all cursor-pointer shadow-sm"
             title="Yopish"
           >
-            ✕
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content: Fon #151719 */}
-        <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 flex-1 bg-[#151719]">
+        {/* Content: Full Screen Oq Fon (#ffffff) */}
+        <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 flex-1 bg-white">
           {items.length === 0 ? (
-            <div className="text-center py-20 space-y-4 max-w-md mx-auto">
-              <div className="w-16 h-16 rounded-xl bg-[#222528] border border-[#51504A] flex items-center justify-center mx-auto text-[#FFB800] shadow-md">
+            <div className="text-center py-20 space-y-4 max-w-md mx-auto bg-[#0A1931] border-2 border-[#1E3A6D] rounded-2xl p-8 text-white shadow-xl my-8">
+              <div className="w-16 h-16 rounded-xl bg-[#0F2547] border border-[#254B85] flex items-center justify-center mx-auto text-[#FFB800] shadow-md">
                 <Package className="w-8 h-8 stroke-[1.8]" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-lg font-bold text-[#F5F5F2]">Bunkerdagi Materiallar bo'sh</h3>
-                <p className="text-xs sm:text-sm text-[#B8B8B3]">
+                <h3 className="text-lg font-bold text-white">Bunkerdagi Materiallar bo'sh</h3>
+                <p className="text-xs sm:text-sm text-sky-100/80">
                   Hozirda tanlangan materiallar yo'q. Bunker platformasidan kerakli qurilish mahsulotlarini tanlashingiz mumkin.
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="btn-industrial-yellow px-6 py-2.5 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all inline-block"
+                className="bg-[#FFB800] hover:bg-[#FFC928] text-black px-6 py-2.5 rounded-lg text-xs sm:text-sm font-black cursor-pointer transition-all inline-block border border-[#E5A600]"
               >
-                Bunkerga qaytish
+                Mahsulotlarga qaytish
               </button>
             </div>
           ) : selectedItem ? (
@@ -239,25 +278,16 @@ export const CartModal: React.FC<CartModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedProductId(null)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-[#F5F5F2] bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] hover:border-[#777A7C] transition-all cursor-pointer shadow-sm active:scale-95"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-white bg-[#0A1931] hover:bg-[#132C54] border border-[#1E3A6D] transition-all cursor-pointer shadow-sm active:scale-95"
                 >
                   <ArrowLeft className="w-4 h-4 text-[#FFB800]" />
                   <span>Tanlangan Qurilish Mahsulotlari jadvaliga qaytish</span>
                 </button>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-[#F5F5F2] font-mono font-bold bg-[#222528] px-3.5 py-2 rounded-lg border border-[#51504A] shadow-sm">
+                  <span className="text-xs text-white font-mono font-bold bg-[#0A1931] px-3.5 py-2 rounded-lg border border-[#1E3A6D] shadow-sm">
                     Jami savatda: {items.length} xil mahsulot
                   </span>
-                  <button
-                    type="button"
-                    onClick={onClearCart}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold text-red-400 hover:text-white bg-red-950/40 hover:bg-red-600 border border-red-700/60 transition-all cursor-pointer shadow-sm active:scale-95"
-                    title="Savatni to'liq bo'shatish"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Savatni bo'shatish</span>
-                  </button>
                 </div>
               </div>
 
@@ -265,13 +295,23 @@ export const CartModal: React.FC<CartModalProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 {/* Asosiy (Chap) Blok: Tanlangan Mahsulotning Barcha Ma'lumotlari */}
-                <div className="lg:col-span-7 xl:col-span-8 bg-[#222528] rounded-xl border border-[#51504A] p-5 sm:p-7 text-[#F5F5F2] shadow-xl space-y-6">
+                <div className="lg:col-span-7 xl:col-span-8 bg-[#0A1931] rounded-xl border-2 border-[#1E3A6D] p-5 sm:p-7 text-white shadow-xl space-y-6">
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     
                     {/* Rasm va Galereya */}
                     <div className="space-y-3">
-                      <div className="relative rounded-lg overflow-hidden bg-[#151719] border border-[#51504A] aspect-square flex items-center justify-center shadow-md">
+                      <div
+                        onDoubleClick={() =>
+                          setFullscreenImage(
+                            selectedItem.product.images && selectedItem.product.images.length > 0
+                              ? selectedItem.product.images[activeImageIndex] || selectedItem.product.image
+                              : selectedItem.product.image
+                          )
+                        }
+                        className="relative rounded-lg overflow-hidden bg-[#151719] border border-[#51504A] aspect-square flex items-center justify-center shadow-md cursor-zoom-in"
+                        title="Katta ekranda ko‘rish uchun ikki marta bosing"
+                      >
                         <img
                           src={
                             selectedItem.product.images && selectedItem.product.images.length > 0
@@ -300,13 +340,14 @@ export const CartModal: React.FC<CartModalProps> = ({
                                 key={i}
                                 type="button"
                                 onClick={() => setActiveImageIndex(i)}
+                                onDoubleClick={() => setFullscreenImage(img)}
                                 className={`w-12 h-12 rounded-lg overflow-hidden border shrink-0 transition-all cursor-pointer ${
                                   activeImageIndex === i
                                     ? 'border-[#FFB800] ring-1 ring-[#FFB800]'
                                     : 'border-[#51504A] opacity-60 hover:opacity-100'
                                 }`}
                               >
-                                <img src={img} alt="" className="w-full h-full object-cover" />
+                                <img src={img} alt={`${i + 1}-rasm`} className="w-full h-full object-cover" />
                               </button>
                             ))}
                           </div>
@@ -409,17 +450,6 @@ export const CartModal: React.FC<CartModalProps> = ({
                             <div className="text-xs text-[#B8B8B3] font-bold font-mono">
                               {selectedItem.quantity} {selectedItem.product.unit}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                onRemoveItem(selectedItem.product.id);
-                                setSelectedProductId(null);
-                              }}
-                              className="inline-flex items-center gap-1.5 mt-1 px-3 py-1 rounded-lg text-xs font-bold text-red-400 hover:text-white bg-red-950/40 hover:bg-red-600 border border-red-700/60 transition-all cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>Savatdan o‘chirish</span>
-                            </button>
                           </div>
                         </div>
                       </div>
@@ -437,14 +467,22 @@ export const CartModal: React.FC<CartModalProps> = ({
                         <div className="space-y-1.5">
                           <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">Ranglar:</div>
                           <div className="flex flex-wrap gap-1.5">
-                            {selectedItem.product.colors.map((c, i) => (
-                              <span
-                                key={i}
-                                className="px-2.5 py-1 rounded text-xs font-bold bg-[#151719] text-[#F5F5F2] border border-[#51504A]"
-                              >
-                                {c}
-                              </span>
-                            ))}
+                            {selectedItem.product.colors.map((c, i) => {
+                              const colStyle = getColorPaletteItem(c);
+                              return (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border border-white/30 shadow-sm"
+                                  style={{ backgroundColor: colStyle.bg, color: colStyle.text }}
+                                >
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-current/40 shrink-0"
+                                    style={{ backgroundColor: colStyle.bg }}
+                                  />
+                                  <span>{c}</span>
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -511,31 +549,31 @@ export const CartModal: React.FC<CartModalProps> = ({
                 </div>
 
                 {/* Yon (O'ng) Blok: Savatdagi Qolgan Mahsulotlar */}
-                <div className="lg:col-span-5 xl:col-span-4 bg-[#222528] rounded-xl border border-[#51504A] p-5 sm:p-6 text-[#F5F5F2] shadow-xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-[#51504A] pb-3.5">
+                <div className="lg:col-span-5 xl:col-span-4 bg-[#0A1931] rounded-xl border-2 border-[#1E3A6D] p-5 sm:p-6 text-white shadow-xl space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#1E3A6D] pb-3.5">
                     <div>
-                      <h4 className="text-sm font-bold text-[#F5F5F2] uppercase tracking-wider">
+                      <h4 className="text-sm font-bold text-white uppercase tracking-wider">
                         Savatdagi Qolgan Mahsulotlar
                       </h4>
-                      <p className="text-xs text-[#B8B8B3] mt-0.5">
+                      <p className="text-xs text-sky-200 mt-0.5">
                         Ma'lumotlarini ko'rish uchun tanlang
                       </p>
                     </div>
-                    <span className="text-xs font-mono font-bold bg-[#292C2F] px-3 py-1 rounded-lg text-[#FFB800] border border-[#51504A]">
+                    <span className="text-xs font-mono font-bold bg-[#071326] px-3 py-1 rounded-lg text-[#FFB800] border border-[#1E3A6D]">
                       {otherItems.length} ta
                     </span>
                   </div>
 
                   {otherItems.length === 0 ? (
                     <div className="py-12 text-center space-y-3">
-                      <Package className="w-12 h-12 text-[#51504A] mx-auto" />
-                      <p className="text-xs text-[#B8B8B3] max-w-[240px] mx-auto">
+                      <Package className="w-12 h-12 text-sky-300/50 mx-auto" />
+                      <p className="text-xs text-sky-200 max-w-[240px] mx-auto">
                         Savatda boshqa mahsulot yo'q. Faqat ushbu tanlangan mahsulot mavjud.
                       </p>
                       <button
                         type="button"
                         onClick={() => setSelectedProductId(null)}
-                        className="btn-industrial-dark px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                        className="bg-[#132C54] hover:bg-[#1B3B6F] text-white border border-[#2E5A9C] px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
                       >
                         Jadval ko'rinishiga qaytish
                       </button>
@@ -549,20 +587,20 @@ export const CartModal: React.FC<CartModalProps> = ({
                             setSelectedProductId(other.product.id);
                             setActiveImageIndex(0);
                           }}
-                          className="p-3.5 rounded-lg bg-[#292C2F] hover:bg-[#34373B] border border-[#51504A] hover:border-[#FFB800] transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-sm"
+                          className="p-3.5 rounded-lg bg-[#0F2547] hover:bg-[#132C54] border border-[#1E3A6D] hover:border-[#FFB800] transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-sm"
                           title="Ushbu mahsulot tafsilotlarini ko'rish"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <img
                               src={other.product.image}
                               alt={other.product.title}
-                              className="w-12 h-12 rounded-lg object-cover shrink-0 bg-[#151719] border border-[#51504A] group-hover:scale-105 transition-transform"
+                              className="w-12 h-12 rounded-lg object-cover shrink-0 bg-[#071326] border border-[#254B85] group-hover:scale-105 transition-transform"
                             />
                             <div className="min-w-0 space-y-1">
-                              <h5 className="text-xs sm:text-sm font-bold text-[#F5F5F2] truncate group-hover:text-[#FFB800] transition-colors">
+                              <h5 className="text-xs sm:text-sm font-bold text-white truncate group-hover:text-[#FFB800] transition-colors">
                                 {other.product.title}
                               </h5>
-                              <div className="text-[11px] text-[#B8B8B3]">
+                              <div className="text-[11px] text-sky-200">
                                 {other.quantity} {other.product.unit} •{' '}
                                 <span className="font-mono text-[#FFB800] font-bold">
                                   {formatPrice(other.product.price * other.quantity)}
@@ -586,45 +624,34 @@ export const CartModal: React.FC<CartModalProps> = ({
           ) : (
             /* ============================================================ */
             /* 2-REJIM: TO'LIQ JADVAL KO'RINISHI (Tanlangan Qurilish Mahsulotlari) */
-            /* Miqdor ustuni olib tashlangan, qator ustiga bosilganda batafsil ko'rish */
             /* ============================================================ */
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#F5F5F2] flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#FFB800]" />
+                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#0A1931] flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[#0A1931]" />
                   <span>Tanlangan Qurilish Mahsulotlari</span>
                 </h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-[#F5F5F2] font-mono font-bold bg-[#222528] px-3.5 py-1.5 rounded-lg border border-[#51504A] shadow-sm">
+                  <span className="text-xs text-white font-mono font-bold bg-[#0A1931] px-3.5 py-1.5 rounded-lg border border-[#1E3A6D] shadow-sm">
                     Jami: {items.length} xil mahsulot
                   </span>
-                  <button
-                    type="button"
-                    onClick={onClearCart}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-red-400 hover:text-white bg-red-950/40 hover:bg-red-600 border border-red-700/60 transition-all cursor-pointer shadow-sm active:scale-95"
-                    title="Savatni to'liq bo'shatish"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Savatni bo'shatish</span>
-                  </button>
                 </div>
               </div>
 
-              {/* To'liq Kengaytirilgan Jadval: Minimal Retro Industrial */}
-              <div className="overflow-x-auto rounded-xl border border-[#51504A] bg-[#222528] shadow-xl text-[#F5F5F2]">
-                <table className="w-full text-left border-collapse min-w-[850px]">
+              {/* To'liq Kengaytirilgan Jadval: Tyomniy Siniy */}
+              <div className="overflow-x-auto rounded-xl border-2 border-[#1E3A6D] bg-[#0A1931] shadow-xl text-white">
+                <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
-                    <tr className="bg-[#1D2023] border-b border-[#51504A] text-xs sm:text-sm font-bold uppercase tracking-wider text-[#B8B8B3]">
+                    <tr className="bg-[#071326] border-b border-[#1E3A6D] text-xs sm:text-sm font-bold uppercase tracking-wider text-sky-200">
                       <th className="py-4 px-5 text-center w-14">№</th>
                       <th className="py-4 px-5 min-w-[260px]">Mahsulot Nomi</th>
                       <th className="py-4 px-5 min-w-[220px]">Ta'minotchi Manzili</th>
                       <th className="py-4 px-5 whitespace-nowrap text-right min-w-[130px]">Narxi</th>
                       <th className="py-4 px-5 text-center whitespace-nowrap min-w-[150px]">Buyurtma Miqdori</th>
                       <th className="py-4 px-5 whitespace-nowrap text-right min-w-[140px]">Umumiy Narx</th>
-                      <th className="py-4 px-4 text-center w-16">Amal</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#51504A] text-xs sm:text-sm md:text-base bg-[#222528]">
+                  <tbody className="divide-y divide-[#1E3A6D] text-xs sm:text-sm md:text-base bg-[#0A1931]">
                     {items.map((item, idx) => {
                       const supplierAddr = getSupplierAddress(item);
 
@@ -733,32 +760,17 @@ export const CartModal: React.FC<CartModalProps> = ({
                               {formatPrice(item.product.price * item.quantity)}
                             </div>
                           </td>
-
-                          {/* 7. Amal */}
-                          <td
-                            className="py-4 px-4 text-center align-middle"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onRemoveItem(item.product.id)}
-                              className="p-2 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all cursor-pointer"
-                              title="Savatdan o‘chirish"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
                         </tr>
                       );
                     })}
                   </tbody>
 
                   {/* Jadval Tagidagi Umumiy Narx Qatori */}
-                  <tfoot className="bg-[#1D2023] border-t border-[#51504A] font-bold">
+                  <tfoot className="bg-[#071326] border-t border-[#1E3A6D] font-bold">
                     <tr>
                       <td
                         colSpan={3}
-                        className="py-4 px-6 text-left text-[#B8B8B3] uppercase tracking-wider text-xs sm:text-sm font-semibold"
+                        className="py-4 px-6 text-left text-sky-200 uppercase tracking-wider text-xs sm:text-sm font-semibold"
                       >
                         Jami: {items.reduce((s, i) => s + i.quantity, 0)} ta birlik tovar | {items.length} xil mahsulot
                       </td>
@@ -771,7 +783,6 @@ export const CartModal: React.FC<CartModalProps> = ({
                       <td className="py-4 px-5 text-right text-base sm:text-xl md:text-2xl text-[#FFB800] font-mono font-bold whitespace-nowrap">
                         {formatPrice(grandTotal)}
                       </td>
-                      <td className="py-4 px-3"></td>
                     </tr>
                   </tfoot>
                 </table>
@@ -780,18 +791,18 @@ export const CartModal: React.FC<CartModalProps> = ({
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-3.5 rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold animate-fadeIn">
-              <AlertCircle className="w-4 h-4 shrink-0" />
+            <div className="flex items-center gap-2 p-3.5 rounded-lg bg-red-500/15 text-red-500 border border-red-500/40 text-xs font-black animate-fadeIn">
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
         </div>
 
-        {/* Footer actions: Brushed steel panel, Buyurtma berish tugmasi SARIQ */}
+        {/* Footer actions: Tyomniy Siniy panel, Buyurtma berish tugmasi SARIQ */}
         {items.length > 0 && (
-          <div className="px-6 sm:px-8 py-5 border-t border-[#51504A] bg-[#1D2023] text-[#F5F5F2] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-6 sm:px-8 py-5 border-t-2 border-[#1E3A6D] bg-gradient-to-r from-[#0A1931] to-[#071326] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-baseline gap-3">
-              <span className="text-xs sm:text-sm text-[#B8B8B3] font-bold uppercase tracking-wider">
+              <span className="text-xs sm:text-sm text-sky-200 font-bold uppercase tracking-wider">
                 To'lanadigan Jami Summa:
               </span>
               <span className="text-xl sm:text-2xl md:text-3xl font-bold text-[#FFB800] font-mono tracking-tight">
@@ -803,7 +814,7 @@ export const CartModal: React.FC<CartModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="btn-industrial-dark px-5 py-3 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-colors"
+                className="bg-[#132C54] hover:bg-[#1B3B6F] text-white border border-[#2E5A9C] px-5 py-3 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-colors"
               >
                 Bekor qilish
               </button>
@@ -812,10 +823,10 @@ export const CartModal: React.FC<CartModalProps> = ({
                 type="button"
                 onClick={handleStartCheckout}
                 disabled={loading}
-                className="btn-industrial-yellow flex items-center gap-2.5 px-6 sm:px-8 py-3 rounded-lg font-bold text-sm sm:text-base shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer transition-all"
+                className="bg-[#FFB800] hover:bg-[#FFC928] text-black border border-[#E5A600] flex items-center gap-2.5 px-6 sm:px-8 py-3 rounded-lg font-black text-sm sm:text-base shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer transition-all"
               >
-                <CheckCircle className="w-5 h-5 stroke-[2.5]" />
-                <span>Buyurtma berish (4 bosqich)</span>
+                <CheckCircle className="w-5 h-5 stroke-[2.5] text-black" />
+                <span>Buyurtma berish</span>
               </button>
             </div>
           </div>
@@ -830,6 +841,7 @@ export const CartModal: React.FC<CartModalProps> = ({
           onClose={() => setIsCheckoutOpen(false)}
           items={items}
           user={user}
+          onUserUpdate={onUserUpdate}
           onUpdateQuantity={onUpdateQuantity}
           onRemoveItem={onRemoveItem}
           onClearCart={onClearCart}
@@ -840,6 +852,29 @@ export const CartModal: React.FC<CartModalProps> = ({
           }}
           onOpenAuth={onOpenAuth}
         />
+      )}
+
+      {/* Katta ekran (Full Screen) rasm ko'rish modali */}
+      {fullscreenImage && (
+        <div
+          className="fixed inset-0 z-[100] w-screen h-screen bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4 animate-fadeIn"
+          onClick={() => setFullscreenImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setFullscreenImage(null)}
+            className="absolute top-4 right-4 px-4 py-2.5 rounded-xl bg-[#222528] hover:bg-red-600 text-[#F5F5F2] border border-[#51504A] font-bold text-xs sm:text-sm flex items-center gap-2 cursor-pointer shadow-2xl"
+          >
+            <X className="w-5 h-5" />
+            <span>Yopish</span>
+          </button>
+          <img
+            src={fullscreenImage}
+            alt="Katta ekran"
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-[95vw] max-h-[90vh] object-contain rounded-xl border border-[#51504A] shadow-2xl"
+          />
+        </div>
       )}
     </div>
   );

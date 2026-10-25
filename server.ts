@@ -24,14 +24,20 @@ app.use('/api/company', companyRoutes);
 // E-IMZO (Elektron Raqamli Imzo) orqali tasdiqlash marshrutlari
 app.use('/api/eimzo', eimzoRoutes);
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
-    },
-  },
-});
+let aiInstance: GoogleGenAI | null = null;
+function getAiClient(): GoogleGenAI {
+  if (!aiInstance) {
+    aiInstance = new GoogleGenAI({
+      apiKey: process.env.GEMINI_API_KEY || 'missing-api-key',
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+  }
+  return aiInstance;
+}
 
 // Google Maps Grounding endpoint using gemini-3.5-flash
 app.post('/api/maps/search', async (req: Request, res: Response) => {
@@ -56,7 +62,7 @@ app.post('/api/maps/search', async (req: Request, res: Response) => {
       };
     }
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: 'gemini-3.5-flash',
       contents: `O'zbekiston hududidagi qurilish ob'ektlari, qurilish mollari bozorlari, beton zavodlari yoki logistika terminallari bo'yicha so'rov: ${query}. Aniq manzil, xususiyatlar va tafsilotlarni ko'rsating.`,
       config,
@@ -108,7 +114,7 @@ Quyidagi parametrlarni hisoblab, JSON formatida javob bering:
   "co2ReductionTons": son
 }`;
 
-    const response = await ai.models.generateContent({
+    const response = await getAiClient().models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
@@ -228,7 +234,7 @@ wss.on('connection', async (clientWs: WebSocket) => {
   let session: any = null;
 
   try {
-    session = await ai.live.connect({
+    session = await getAiClient().live.connect({
       model: 'gemini-3.8-live',
       config: {
         responseModalities: [Modality.AUDIO],
