@@ -80,7 +80,6 @@ import {
 } from '../data/supplierReportsData';
 import { db } from '../lib/firebase';
 import { collection, onSnapshot, deleteDoc, doc, setDoc } from 'firebase/firestore';
-import { MapsGroundingView } from './MapsGroundingView';
 import { BunkerStatsDashboard } from './BunkerStatsDashboard';
 
 // Telefon raqamini +998 dan keyin 9 ta raqam shaklida formatlash
@@ -2150,7 +2149,7 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
       detailedReport.sales.length > 0
         ? detailedReport.sales
             .map((item, i) => {
-              const itemBaseSum = detailedReport.commissionBasis === 'profit' ? item.profitSum : item.totalSum;
+              const itemBaseSum = (detailedReport.commissionBasis === 'profit' ? item.profitSum : item.totalSum) || 0;
               const itemBunkerShare = Math.round((itemBaseSum * detailedReport.commissionRate) / 100);
               return `
           <tr>
@@ -5571,7 +5570,7 @@ export const AdminCabinet: React.FC<AdminCabinetProps> = ({
                       {detailedReport.sales.map((item, idx) => {
                         const basisLabel = detailedReport.commissionBasis === 'profit' ? 'Savdodan' : 'Umumiydan';
                         const itemBaseSum =
-                          detailedReport.commissionBasis === 'profit' ? item.profitSum : item.totalSum;
+                          (detailedReport.commissionBasis === 'profit' ? item.profitSum : item.totalSum) || 0;
                         const itemBunkerShare = Math.round(
                           (itemBaseSum * detailedReport.commissionRate) / 100
                         );

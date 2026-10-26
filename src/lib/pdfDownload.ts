@@ -21,17 +21,23 @@ export interface MonitoringPdfParams {
   region?: string;
   phone?: string;
   periodLabel: string;
-  subTab: 'general' | 'online' | 'offline' | 'kirim_chiqim';
-  commissionRate: number;
+  nowFormatted?: string;
+  showCommissionColumn?: boolean;
+  getSaleItemBunkerCommission?: (sale: any) => number;
+  formatBuyerDisplayName?: (name: string, phone: string) => string;
+  subTab?: 'general' | 'online' | 'offline' | 'kirim_chiqim';
+  commissionRate?: number;
   generalSalesTotalSum: number;
   generalSalesCount: number;
   onlineSalesTotalSum: number;
-  onlineBunkerCommissionSum: number;
+  onlineBunkerCommissionSum?: number;
   offlineCrmSalesTotalSum: number;
   generalSupplierNetSum: number;
   dailyGroups: {
     day: string;
     totalSum: number;
+    onlineSum?: number;
+    crmSum?: number;
     commissionSum: number;
     netSum: number;
     items: {
@@ -43,8 +49,8 @@ export interface MonitoringPdfParams {
       unit: string;
       price: number;
       totalSum: number;
-      commission: number;
-      net: number;
+      commission?: number;
+      net?: number;
       buyerName: string;
       buyerPhone: string;
       status: string;
@@ -285,9 +291,9 @@ export const downloadMonitoringPdfFile = (params: MonitoringPdfParams) => {
             formatCurrency(sale.price),
             formatCurrency(sale.totalSum),
             ...(params.subTab === 'general'
-              ? [isOff ? "0 so'm (CRM)" : formatCurrency(sale.commission)]
+              ? [isOff ? "0 so'm (CRM)" : formatCurrency(sale.commission || 0)]
               : []),
-            formatCurrency(sale.net),
+            formatCurrency(sale.net || 0),
             `${sale.buyerName} (${sale.buyerPhone || '-'})`.slice(0, 32),
           ];
 
@@ -441,16 +447,34 @@ export const downloadCustomerOrderPdfFile = (
   cust: {
     orderIds: string[];
     lastOrderDate: string;
-    status: string;
+    status?: string;
+    statusText?: string;
     driverPhone?: string;
-    name: string;
-    phone: string;
-    address: string;
+    name?: string;
+    customerName?: string;
+    phone?: string;
+    customerPhone?: string;
+    address?: string;
+    customerAddress?: string;
     totalSpent: number;
     itemsList: { title: string; quantity: number; unit: string; price: number; totalSum: number }[];
+    companyName?: string;
+    supplierInn?: string;
+    supplierPhone?: string;
+    supplierRegion?: string;
   },
-  supplierData: { companyName: string; inn?: string; phone?: string; region?: string }
+  supplierData?: { companyName: string; inn?: string; phone?: string; region?: string }
 ) => {
+  const effectiveSupplier = supplierData || {
+    companyName: cust.companyName || 'Bunker Stroy',
+    inn: cust.supplierInn || '-',
+    phone: cust.supplierPhone || '',
+    region: cust.supplierRegion || '',
+  };
+  const customerName = cust.name || cust.customerName || 'Mijoz';
+  const customerPhone = cust.phone || cust.customerPhone || '';
+  const customerAddress = cust.address || cust.customerAddress || '';
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const pageWidth = doc.internal.pageSize.getWidth();
   let y = 15;
@@ -475,10 +499,10 @@ export const downloadCustomerOrderPdfFile = (
   doc.rect(12, y, pageWidth - 24, 24, 'FD');
   doc.setTextColor(15, 23, 42);
   doc.setFontSize(8.5);
-  doc.text(sanitizePdfText(`Xaridor: ${cust.name} | Tel: ${cust.phone}`), 16, y + 7);
-  doc.text(sanitizePdfText(`Yetkazish manzili: ${cust.address}`), 16, y + 13);
+  doc.text(sanitizePdfText(`Xaridor: ${customerName} | Tel: ${customerPhone}`), 16, y + 7);
+  doc.text(sanitizePdfText(`Yetkazish manzili: ${customerAddress}`), 16, y + 13);
   doc.text(
-    sanitizePdfText(`Ta'minotchi: ${supplierData.companyName} (STIR: ${supplierData.inn || '-'})`),
+    sanitizePdfText(`Ta'minotchi: ${effectiveSupplier.companyName} (STIR: ${effectiveSupplier.inn || '-'})`),
     16,
     y + 19
   );

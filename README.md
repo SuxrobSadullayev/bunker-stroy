@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# BunkerStroy — Qurilish mollari va maxsus texnika logistika platformasi
 
-# Run and deploy your AI Studio app
+O‘zbekiston qurilish sohasi uchun mo‘ljallangan B2B va B2C marketplace, logistika xizmatlari agregatori va elektron tijorat tizimi.
 
-This contains everything you need to run your app locally.
+## Imkoniyatlar
+- **Marketplace:** Qurilish mahsulotlari katalogi, filtrlash, savat va buyurtma tizimi.
+- **Logistika Hab:** Samosval, avtokran, mikser, manipulyator va maxsus texnikalarni buyurtma qilish.
+- **Ko‘p bosqichli kabinetlar:**
+  - Jismoniy va yuridik shaxslar (mijozlar) kabineti
+  - Ishlab chiqaruvchi va yetkazib beruvchilar kabineti (Supplier Cabinet)
+  - Admin va Sub-admin kabineti (Admin Cabinet, CRM, hisobotlar)
+  - Tizim boshqaruvchisi (Bunker Super Admin)
+- **STIR / INN Validatsiya & Kesh:** O‘zbekiston korxonalarini STIR bo‘yicha avtomatik tekshirish.
+- **E-IMZO integratsiyasi:** Elektron raqamli imzo orqali yuridik shaxslarni verifikatsiya qilish.
+- **SMS Gateway:** Eskiz.uz orqali telefon raqamlariga OTP tasdiqlash kodlarini yuborish.
+- **PDF hisobotlar:** Buyurtma cheklari va hisob-fakturalarni PDF ko‘rinishida yuklab olish.
 
-View your app in AI Studio: https://ai.studio/apps/30789e4a-2378-401e-a1e1-f9b548ce7a1f
+## Texnologiyalar
+- **Frontend:** React 19, Vite, TypeScript, Tailwind CSS, Lucide React, jsPDF
+- **Backend:** Node.js, Express, TypeScript, tsx
+- **Ma'lumotlar bazasi:** Firebase Firestore
+- **SMS:** Eskiz.uz SMS API
 
-## Run Locally
+## O‘rnatish va ishga tushirish
 
-**Prerequisites:**  Node.js
+1. Bog‘liqliklarni o‘rnatish:
+   ```bash
+   npm install
+   ```
 
+2. `.env` faylini sozlash (ixtiyoriy Eskiz SMS va portlar uchun):
+   ```bash
+   cp .env.example .env
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. Loyihani ishlab chiquvchi rejimida ishga tushirish:
+   ```bash
+   npm run dev
+   ```
+
+4. Loyihani tekshirish:
+   ```bash
+   npm run lint
+   npm test
+   ```

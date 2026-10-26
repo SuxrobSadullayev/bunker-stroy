@@ -43,6 +43,7 @@ export interface SubAdminCabinetAccount {
   login: string;
   password: string;
   permissions: AdminPermissionSection[];
+  status?: 'active' | 'blocked';
   createdAt: string;
   updatedAt?: string;
 }
@@ -64,12 +65,14 @@ export interface UserProfile {
   displayName: string;
   firstName?: string;
   lastName?: string;
+  login?: string;
   userType?: UserType;
   companyName?: string;
   inn?: string;
   region?: string;
   district?: string;
   mahalla?: string;
+  address?: string;
   role: UserRole;
   phone?: string;
   contractNumber?: string;
@@ -99,6 +102,7 @@ export interface SupplierPartner {
   companyInfo?: CompanyInfo;
   name: string;
   surname?: string;
+  directorName?: string;
   companyName: string;
   phone: string;
   secondaryPhone?: string;
@@ -120,6 +124,7 @@ export interface SupplierPartner {
   allowPromoVideo?: boolean;
   commissionRate?: number;
   commissionBasis?: CommissionBasis;
+  joinedAt?: string;
   createdAt: string;
   lastLoginAt?: string;
 }
@@ -150,6 +155,7 @@ export interface SystemLog {
 
 export interface SupplierSaleItem {
   id: string;
+  productId?: string;
   orderId?: string;
   orderChannel?: 'online' | 'offline';
   productTitle: string;
@@ -159,6 +165,8 @@ export interface SupplierSaleItem {
   price: number;
   totalSum: number;
   profitSum?: number;
+  commission?: number;
+  net?: number;
   buyerName: string;
   buyerPhone: string;
   driverPhone?: string;
