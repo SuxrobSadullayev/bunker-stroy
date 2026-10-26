@@ -192,13 +192,14 @@ export default function App() {
       const saved = localStorage.getItem('bunkerstroy_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.filter((p: Product) => p && p.id && !MOCK_FAKE_PRODUCT_IDS.includes(p.id));
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((p: Product) => p && p.id && !MOCK_FAKE_PRODUCT_IDS.includes(p.id));
+          if (valid.length > 0) return valid;
         }
       }
-      return [];
+      return INITIAL_PRODUCTS;
     } catch {
-      return [];
+      return INITIAL_PRODUCTS;
     }
   });
   const [vehicles, setVehicles] = useState<LogisticsVehicle[]>(INITIAL_VEHICLES);
@@ -798,29 +799,29 @@ export default function App() {
 
           {/* Footer - Faqat bosh panelda (Mahsulotlar oxiriga yetganda eng pastda) ko'rsatiladi */}
           {activeTab === 'marketplace' && (
-            <footer className="bg-gradient-to-b from-[#0A1931] to-[#071326] border-t-2 border-[#1E3A6D] text-sky-100/80 text-[11px] py-3.5 mt-auto">
+            <footer className="bg-gray-50 border-t border-gray-200 text-gray-600 text-[11px] py-4 mt-auto">
               <div className="w-full px-4 sm:px-6 lg:px-10 grid grid-cols-1 md:grid-cols-3 items-center gap-4">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-white font-black text-sm">
-                    <div className="w-6 h-6 rounded bg-[#0F2547] border border-[#254B85] flex items-center justify-center text-[#FFB800]">
+                  <div className="flex items-center gap-2 text-gray-900 font-black text-sm">
+                    <div className="w-6 h-6 rounded bg-amber-400 text-gray-950 flex items-center justify-center font-bold">
                       <HardHat className="w-3.5 h-3.5 stroke-[2.2]" />
                     </div>
                     <span>
-                      <span className="text-[#FFB800]">BUNKER</span> <span className="text-white">STROY</span>
+                      <span className="text-[#FFB800]">BUNKER</span> <span className="text-gray-900">STROY</span>
                     </span>
                   </div>
-                  <p className="text-[11px] leading-snug text-sky-100/90 font-medium">
-                    Viloyatlararo Qurilish kategoriyasidagi mahsulotlarni Va Ta'minotchilarni Birlashtiruvchi (B2B2C) Onlayn market Platform.
+                  <p className="text-[11px] leading-snug text-gray-500 font-medium">
+                    Viloyatlararo Qurilish mahsulotlari va logistika xizmatlarini birlashtiruvchi zamonaviy e-commerce platformasi.
                   </p>
                 </div>
 
                 <div className="space-y-1">
-                  <h4 className="font-bold text-[10px] uppercase tracking-wider text-[#FFB800]">Tezkor Havolalar</h4>
-                  <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-sky-100/90 font-semibold">
-                    <li><button onClick={() => setActiveTab('marketplace')} className="hover:text-[#FFB800] cursor-pointer">Mahsulotlar</button></li>
-                    <li><button onClick={() => setActiveTab('global_bunker')} className="hover:text-[#FFB800] cursor-pointer">B2B Bunker</button></li>
-                    <li><button onClick={() => setActiveTab('logistics')} className="hover:text-[#FFB800] cursor-pointer">Biz Haqimizda</button></li>
-                    <li><button onClick={() => { setAuthInitialMode('login'); setIsAuthOpen(true); }} className="hover:text-[#FFB800] text-[#FFB800] font-bold cursor-pointer">Kabinetga Kirish</button></li>
+                  <h4 className="font-bold text-[10px] uppercase tracking-wider text-gray-400">Tezkor Havolalar</h4>
+                  <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-gray-700 font-medium">
+                    <li><button onClick={() => setActiveTab('marketplace')} className="hover:text-amber-500 cursor-pointer">Mahsulotlar</button></li>
+                    <li><button onClick={() => setActiveTab('global_bunker')} className="hover:text-amber-500 cursor-pointer">B2B Ulgurji</button></li>
+                    <li><button onClick={() => setActiveTab('logistics')} className="hover:text-amber-500 cursor-pointer">Biz Haqimizda</button></li>
+                    <li><button onClick={() => { setAuthInitialMode('login'); setIsAuthOpen(true); }} className="hover:text-amber-500 text-amber-600 font-bold cursor-pointer">Kabinetga Kirish</button></li>
                   </ul>
                 </div>
 

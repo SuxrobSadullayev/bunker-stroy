@@ -2,14 +2,13 @@
 
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #0A1931;
-  --bg-card: #0F2547;
+  --bg-secondary: #f8fafc;
+  --bg-card: #ffffff;
   --color-yellow: #FFB800;
   --color-yellow-bright: #FFC928;
-  --text-primary: #F5F5F2;
-  --text-secondary: #BAE6FD;
-  --border-industrial: #1E3A6D;
-  --metallic-highlight: #2E5A9C;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border-subtle: #e2e8f0;
 }
 
 html, body, #root {
@@ -17,152 +16,68 @@ html, body, #root {
   min-height: 100vh;
   margin: 0;
   padding: 0;
-  overflow-x: clip;
   background-color: #ffffff;
-  color: #0A1931;
-  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  color: #0f172a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-:fullscreen, :-webkit-full-screen {
-  width: 100vw;
-  height: 100vh;
-  overflow-y: auto;
-  background-color: #ffffff;
-}
-
-/* =========================================================================
-   TYOMNIY SINIY & INDUSTRIAL UTILITIES
-   ========================================================================= */
-
-/* Industrial Primary Canvas */
-.bg-industrial-primary {
-  background-color: #071326;
-}
-
-/* Industrial Secondary Surface */
-.bg-industrial-secondary {
-  background-color: #0A1931;
-}
-
-/* Industrial Card Surface */
-.bg-industrial-card {
-  background-color: #0F2547;
-}
-
-/* Industrial Borders */
-.border-industrial {
-  border-color: #1E3A6D;
-}
-
-.border-industrial-highlight {
-  border-color: #2E5A9C;
-}
-
-/* Dark Blue Gradient Surface */
-.brushed-steel {
-  background: linear-gradient(180deg, #0F2547 0%, #0A1931 100%);
-  border: 1px solid #1E3A6D;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 4px 16px rgba(10, 25, 49, 0.25);
-}
-
-.brushed-steel-header {
-  background: linear-gradient(180deg, #0A1931 0%, #071326 100%);
-  border-bottom: 2px solid #1E3A6D;
-  box-shadow: 0 4px 20px rgba(10, 25, 49, 0.35), inset 0 -1px 0 rgba(255, 184, 0, 0.15);
-}
-
-.industrial-card {
-  background-color: #0A1931;
-  border: 1px solid #1E3A6D;
-  transition: all 0.2s ease-in-out;
-}
-
-.industrial-card:hover {
-  border-color: #2E5A9C;
-  box-shadow: 0 8px 24px -4px rgba(10, 25, 49, 0.45), 0 0 0 1px rgba(255, 184, 0, 0.25);
-}
-
-/* Restrained Hazard Stripe Accent */
-.hazard-stripe-sm {
-  background-image: repeating-linear-gradient(
-    -45deg,
-    #FFB800 0,
-    #FFB800 6px,
-    #0A1931 6px,
-    #0A1931 12px
-  );
-}
-
-/* Industrial Rivet Element */
-.industrial-rivet {
-  width: 6px;
-  height: 6px;
-  border-radius: 9999px;
-  background: radial-gradient(circle at 35% 35%, #93C5FD, #1E3A6D 70%, #0A1931);
-  box-shadow: 0 0 1px 1px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.3);
-  display: inline-block;
-}
-
-/* Subtle Technical Grid Overlay */
-.tech-grid-pattern {
-  background-image: linear-gradient(to right, rgba(30, 58, 109, 0.12) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(30, 58, 109, 0.12) 1px, transparent 1px);
-  background-size: 24px 24px;
-}
-
-/* Primary Yellow Button */
-.btn-industrial-yellow {
-  background-color: #FFB800;
-  color: #000000;
-  font-weight: 800;
-  border: 1px solid #E5A600;
-  transition: all 0.15s ease-in-out;
-}
-
-.btn-industrial-yellow:hover {
-  background-color: #FFC928;
-  box-shadow: 0 0 12px rgba(255, 184, 0, 0.35);
-}
-
-.btn-industrial-yellow:active {
-  transform: translateY(1px);
-}
-
-/* Industrial Secondary Button */
-.btn-industrial-dark {
-  background-color: #132C54;
-  color: #FFFFFF;
-  border: 1px solid #2E5A9C;
-  transition: all 0.15s ease-in-out;
-}
-
-.btn-industrial-dark:hover {
-  background-color: #1B3B6F;
-  border-color: #FFB800;
-  color: #FFB800;
-}
-
-/* Typography Helpers */
-.font-mono-numbers {
-  font-family: 'Space Mono', monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Scrollbar styling */
+/* Scrollbar dizayni */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: #f1f5f9;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #1E3A6D;
-  border-radius: 3px;
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #FFB800;
+/* Asosiy Sariq Sotib Olish Tugmasi (BunkerStroy brendi) */
+.btn-bunker-yellow,
+.btn-industrial-yellow {
+  background-color: #FFB800;
+  color: #000000;
+  font-weight: 700;
+  border: 1px solid #E5A600;
+  transition: all 0.15s ease-in-out;
+}
+.btn-bunker-yellow:hover,
+.btn-industrial-yellow:hover {
+  background-color: #FFC928;
+  box-shadow: 0 4px 12px rgba(255, 184, 0, 0.35);
+}
+.btn-bunker-yellow:active,
+.btn-industrial-yellow:active {
+  transform: scale(0.97);
+}
+
+/* Ikkinchi darajali tugmalar */
+.btn-industrial-dark {
+  background-color: #f1f5f9;
+  color: #1e293b;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  transition: all 0.15s ease-in-out;
+}
+.btn-industrial-dark:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+/* Uzum uslubidagi yumshoq kartochka */
+.uzum-card {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.uzum-card:hover {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+  border-color: #cbd5e1;
 }

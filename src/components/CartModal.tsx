@@ -217,22 +217,22 @@ export const CartModal: React.FC<CartModalProps> = ({
       {/* To'liq ekranni (Full Screen Oq Fon) egallovchi Buyurtma Berish Savati */}
       <div className="bg-white w-full h-full flex flex-col overflow-hidden text-black">
         
-        {/* Header: Tyomniy Siniy Header */}
-        <div className="px-6 sm:px-8 py-4 border-b-2 border-[#1E3A6D] flex items-center justify-between bg-gradient-to-r from-[#0A1931] to-[#071326] text-white shadow-md">
+        {/* Header: Uzum uslubidagi toza Oq Header */}
+        <div className="px-6 sm:px-8 py-4 border-b border-gray-200 flex items-center justify-between bg-white text-gray-900 shadow-xs">
           <div className="flex items-center gap-3.5">
-            <div className="p-2.5 rounded-lg bg-[#0F2547] text-[#FFB800] border border-[#254B85]">
+            <div className="p-2.5 rounded-xl bg-amber-50 text-[#FFB800] border border-amber-200">
               <HardHat className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-xl sm:text-2xl font-bold text-white tracking-wide">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-950 tracking-tight">
                   Bunkerdagi Materiallar
                 </h2>
-                <span className="hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#0F2547] text-[#FFB800] border border-[#254B85]">
+                <span className="hidden sm:inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-50 text-amber-800 border border-amber-200">
                   BUNKERSTROY
                 </span>
               </div>
-              <p className="text-[11px] text-sky-200 mt-0.5">
+              <p className="text-[11px] text-gray-500 mt-0.5">
                 Tanlangan mahsulotlar bu yerda buyurtma qilish uchun. Sonini qo'shish, ko'paytirish yoki kamaytirish imkoni.
               </p>
             </div>
@@ -240,7 +240,7 @@ export const CartModal: React.FC<CartModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-white hover:bg-red-600 p-2 rounded-lg bg-[#132C54] border border-[#2E5A9C] transition-all cursor-pointer shadow-sm"
+            className="text-gray-500 hover:text-gray-900 hover:bg-gray-100 p-2 rounded-xl bg-gray-50 border border-gray-200 transition-all cursor-pointer"
             title="Yopish"
           >
             <X className="w-5 h-5" />
@@ -250,19 +250,19 @@ export const CartModal: React.FC<CartModalProps> = ({
         {/* Content: Full Screen Oq Fon (#ffffff) */}
         <div className="p-4 sm:p-6 lg:p-8 overflow-y-auto space-y-6 flex-1 bg-white">
           {items.length === 0 ? (
-            <div className="text-center py-20 space-y-4 max-w-md mx-auto bg-[#0A1931] border-2 border-[#1E3A6D] rounded-2xl p-8 text-white shadow-xl my-8">
-              <div className="w-16 h-16 rounded-xl bg-[#0F2547] border border-[#254B85] flex items-center justify-center mx-auto text-[#FFB800] shadow-md">
+            <div className="text-center py-20 space-y-4 max-w-md mx-auto bg-white border border-gray-200 rounded-2xl p-8 text-gray-900 shadow-sm my-8">
+              <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto text-[#FFB800]">
                 <Package className="w-8 h-8 stroke-[1.8]" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-lg font-bold text-white">Bunkerdagi Materiallar bo'sh</h3>
-                <p className="text-xs sm:text-sm text-sky-100/80">
+                <h3 className="text-lg font-bold text-gray-900">Bunkerdagi Materiallar bo'sh</h3>
+                <p className="text-xs sm:text-sm text-gray-500">
                   Hozirda tanlangan materiallar yo'q. Bunker platformasidan kerakli qurilish mahsulotlarini tanlashingiz mumkin.
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="bg-[#FFB800] hover:bg-[#FFC928] text-black px-6 py-2.5 rounded-lg text-xs sm:text-sm font-black cursor-pointer transition-all inline-block border border-[#E5A600]"
+                className="bg-[#FFB800] hover:bg-[#FFC928] text-gray-950 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold cursor-pointer transition-all inline-block border border-[#E5A600] shadow-xs active:scale-95"
               >
                 Mahsulotlarga qaytish
               </button>
@@ -278,14 +278,14 @@ export const CartModal: React.FC<CartModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSelectedProductId(null)}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs sm:text-sm font-bold text-white bg-[#0A1931] hover:bg-[#132C54] border border-[#1E3A6D] transition-all cursor-pointer shadow-sm active:scale-95"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all cursor-pointer shadow-xs active:scale-95"
                 >
-                  <ArrowLeft className="w-4 h-4 text-[#FFB800]" />
+                  <ArrowLeft className="w-4 h-4 text-gray-950" />
                   <span>Tanlangan Qurilish Mahsulotlari jadvaliga qaytish</span>
                 </button>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-white font-mono font-bold bg-[#0A1931] px-3.5 py-2 rounded-lg border border-[#1E3A6D] shadow-sm">
+                  <span className="text-xs text-gray-800 font-mono font-bold bg-gray-50 px-3.5 py-2 rounded-xl border border-gray-200 shadow-xs">
                     Jami savatda: {items.length} xil mahsulot
                   </span>
                 </div>
@@ -295,7 +295,7 @@ export const CartModal: React.FC<CartModalProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
                 {/* Asosiy (Chap) Blok: Tanlangan Mahsulotning Barcha Ma'lumotlari */}
-                <div className="lg:col-span-7 xl:col-span-8 bg-[#0A1931] rounded-xl border-2 border-[#1E3A6D] p-5 sm:p-7 text-white shadow-xl space-y-6">
+                <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl border border-gray-200 p-5 sm:p-7 text-gray-900 shadow-sm space-y-6">
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
                     
@@ -309,7 +309,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                               : selectedItem.product.image
                           )
                         }
-                        className="relative rounded-lg overflow-hidden bg-[#151719] border border-[#51504A] aspect-square flex items-center justify-center shadow-md cursor-zoom-in"
+                        className="relative rounded-xl overflow-hidden bg-gray-50 border border-gray-200 aspect-square flex items-center justify-center shadow-xs cursor-zoom-in"
                         title="Katta ekranda ko‘rish uchun ikki marta bosing"
                       >
                         <img
@@ -322,7 +322,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                          <span className="px-2.5 py-1 rounded bg-[#151719]/90 border border-[#51504A] text-xs font-bold text-[#FFB800] shadow-sm font-mono">
+                          <span className="px-2.5 py-1 rounded-lg bg-white/95 border border-gray-200 text-xs font-bold text-gray-950 shadow-xs font-mono">
                             {selectedItem.product.category}
                           </span>
                         </div>
@@ -331,7 +331,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                       {/* Agar 12 tagacha surat yuklangan bo'lsa */}
                       {selectedItem.product.images && selectedItem.product.images.length > 1 && (
                         <div className="space-y-1.5">
-                          <div className="text-[11px] font-bold text-[#B8B8B3]">
+                          <div className="text-[11px] font-bold text-gray-500">
                             Mahsulot suratlari ({selectedItem.product.images.length} ta):
                           </div>
                           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -341,10 +341,10 @@ export const CartModal: React.FC<CartModalProps> = ({
                                 type="button"
                                 onClick={() => setActiveImageIndex(i)}
                                 onDoubleClick={() => setFullscreenImage(img)}
-                                className={`w-12 h-12 rounded-lg overflow-hidden border shrink-0 transition-all cursor-pointer ${
+                                className={`w-12 h-12 rounded-xl overflow-hidden border shrink-0 transition-all cursor-pointer ${
                                   activeImageIndex === i
-                                    ? 'border-[#FFB800] ring-1 ring-[#FFB800]'
-                                    : 'border-[#51504A] opacity-60 hover:opacity-100'
+                                    ? 'border-[#FFB800] ring-2 ring-[#FFB800]'
+                                    : 'border-gray-200 opacity-70 hover:opacity-100'
                                 }`}
                               >
                                 <img src={img} alt={`${i + 1}-rasm`} className="w-full h-full object-cover" />
@@ -359,34 +359,34 @@ export const CartModal: React.FC<CartModalProps> = ({
                     <div className="space-y-4 flex flex-col justify-between">
                       <div className="space-y-3.5">
                         <div>
-                          <h3 className="text-xl sm:text-2xl font-bold text-[#F5F5F2] leading-tight">
+                          <h3 className="text-xl sm:text-2xl font-bold text-gray-950 leading-tight">
                             {selectedItem.product.title}
                           </h3>
-                          <span className="inline-block mt-1 text-xs text-[#FFB800] font-mono font-bold">
+                          <span className="inline-block mt-1 text-xs text-amber-600 font-mono font-bold">
                             Kategoriya: {selectedItem.product.category}
                           </span>
                         </div>
 
                         {/* Narxi */}
-                        <div className="p-3.5 rounded-lg bg-[#292C2F] border border-[#51504A] space-y-1">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">Narxi:</div>
-                          <div className="text-2xl sm:text-3xl font-bold text-[#FFB800] font-mono-numbers">
+                        <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1">
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Narxi:</div>
+                          <div className="text-2xl sm:text-3xl font-extrabold text-gray-950 font-mono-numbers">
                             {formatPrice(selectedItem.product.price)}
                           </div>
-                          <div className="text-xs text-[#B8B8B3] font-mono">
+                          <div className="text-xs text-gray-500 font-mono">
                             1 {selectedItem.product.unit} uchun belgilangan narx
                           </div>
                         </div>
 
                         {/* Ta'minotchi va Manzil */}
-                        <div className="p-3.5 rounded-lg bg-[#292C2F] border border-[#51504A] space-y-1.5">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">
+                        <div className="p-3.5 rounded-xl bg-gray-50 border border-gray-200 space-y-1.5">
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">
                             Ta'minotchi Manzili:
                           </div>
-                          <div className="font-bold text-[#F5F5F2] text-sm">
+                          <div className="font-bold text-gray-900 text-sm">
                             {selectedItem.product.supplierName || "Rasmiy Qurilish Ta'minotchisi"}
                           </div>
-                          <div className="flex items-start gap-1.5 text-xs text-[#B8B8B3]">
+                          <div className="flex items-start gap-1.5 text-xs text-gray-600">
                             <MapPin className="w-4 h-4 text-[#FFB800] shrink-0 mt-0.5" />
                             <span>{getSupplierAddress(selectedItem)}</span>
                           </div>
@@ -394,14 +394,14 @@ export const CartModal: React.FC<CartModalProps> = ({
 
                         {/* Yetkazib berish xizmati */}
                         <div className="flex items-center gap-2.5">
-                          <span className="text-xs text-[#B8B8B3] font-bold">Yetkazib berish:</span>
+                          <span className="text-xs text-gray-500 font-bold">Yetkazib berish:</span>
                           {selectedItem.product.hasDelivery !== false ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[#292C2F] text-emerald-400 border border-[#51504A] shadow-sm">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-xs">
                               <Check className="w-4 h-4 stroke-[3]" />
                               <span>✓ Mavjud</span>
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-[#292C2F] text-rose-400 border border-[#51504A] shadow-sm">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 shadow-xs">
                               <span>✕ Mavjud emas</span>
                             </span>
                           )}
@@ -409,28 +409,28 @@ export const CartModal: React.FC<CartModalProps> = ({
                       </div>
 
                       {/* Buyurtma miqdorini boshqarish */}
-                      <div className="p-4 rounded-lg bg-[#292C2F] border border-[#51504A] space-y-3 mt-2">
+                      <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-3 mt-2">
                         <div className="flex items-center justify-between text-xs font-bold">
-                          <span className="text-[#B8B8B3] uppercase tracking-wider">Buyurtma Miqdori:</span>
-                          <span className="text-[#FFB800] font-mono text-sm">
+                          <span className="text-gray-500 uppercase tracking-wider">Buyurtma Miqdori:</span>
+                          <span className="text-gray-950 font-mono text-sm font-bold">
                             Jami: {formatPrice(selectedItem.product.price * selectedItem.quantity)}
                           </span>
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
-                          <div className="inline-flex items-center gap-3 bg-[#151719] px-3.5 py-1.5 rounded-lg border border-[#51504A]">
+                          <div className="inline-flex items-center gap-3 bg-white px-3.5 py-1.5 rounded-xl border border-gray-200 shadow-xs">
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 onUpdateQuantity(selectedItem.product.id, Math.max(1, selectedItem.quantity - 1));
                               }}
-                              className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors cursor-pointer"
+                              className="p-1 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                               title="Kamaytirish"
                             >
                               <Minus className="w-4 h-4" />
                             </button>
-                            <span className="text-base sm:text-lg font-bold text-[#F5F5F2] px-2 min-w-[36px] text-center font-mono">
+                            <span className="text-base sm:text-lg font-bold text-gray-950 px-2 min-w-[36px] text-center font-mono">
                               {selectedItem.quantity}
                             </span>
                             <button
@@ -439,7 +439,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                                 e.stopPropagation();
                                 onUpdateQuantity(selectedItem.product.id, selectedItem.quantity + 1);
                               }}
-                              className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors cursor-pointer"
+                              className="p-1 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
                               title="Oshirish"
                             >
                               <Plus className="w-4 h-4" />
@@ -447,7 +447,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                           </div>
 
                           <div className="text-right">
-                            <div className="text-xs text-[#B8B8B3] font-bold font-mono">
+                            <div className="text-xs text-gray-600 font-bold font-mono">
                               {selectedItem.quantity} {selectedItem.product.unit}
                             </div>
                           </div>
@@ -462,17 +462,17 @@ export const CartModal: React.FC<CartModalProps> = ({
                     (selectedItem.product.sizes && selectedItem.product.sizes.length > 0) ||
                     (selectedItem.product.weights && selectedItem.product.weights.length > 0) ||
                     (selectedItem.product.lengths && selectedItem.product.lengths.length > 0)) && (
-                    <div className="p-4 rounded-lg bg-[#292C2F] border border-[#51504A] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                       {selectedItem.product.colors && selectedItem.product.colors.length > 0 && (
                         <div className="space-y-1.5">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">Ranglar:</div>
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Ranglar:</div>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedItem.product.colors.map((c, i) => {
                               const colStyle = getColorPaletteItem(c);
                               return (
                                 <span
                                   key={i}
-                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border border-white/30 shadow-sm"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold border border-gray-200 shadow-xs"
                                   style={{ backgroundColor: colStyle.bg, color: colStyle.text }}
                                 >
                                   <span
@@ -488,12 +488,12 @@ export const CartModal: React.FC<CartModalProps> = ({
                       )}
                       {selectedItem.product.sizes && selectedItem.product.sizes.length > 0 && (
                         <div className="space-y-1.5">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">O'lchov:</div>
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">O'lchov:</div>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedItem.product.sizes.map((s, i) => (
                               <span
                                 key={i}
-                                className="px-2.5 py-1 rounded text-xs font-bold bg-[#151719] text-[#FFB800] border border-[#51504A] font-mono"
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-gray-900 border border-gray-200 font-mono shadow-xs"
                               >
                                 {s}
                               </span>
@@ -503,12 +503,12 @@ export const CartModal: React.FC<CartModalProps> = ({
                       )}
                       {selectedItem.product.weights && selectedItem.product.weights.length > 0 && (
                         <div className="space-y-1.5">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">Og'irlik:</div>
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Og'irlik:</div>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedItem.product.weights.map((w, i) => (
                               <span
                                 key={i}
-                                className="px-2.5 py-1 rounded text-xs font-bold bg-[#151719] text-[#FFB800] border border-[#51504A] font-mono"
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-gray-900 border border-gray-200 font-mono shadow-xs"
                               >
                                 {w}
                               </span>
@@ -518,12 +518,12 @@ export const CartModal: React.FC<CartModalProps> = ({
                       )}
                       {selectedItem.product.lengths && selectedItem.product.lengths.length > 0 && (
                         <div className="space-y-1.5">
-                          <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">Uzunlik:</div>
+                          <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">Uzunlik:</div>
                           <div className="flex flex-wrap gap-1.5">
                             {selectedItem.product.lengths.map((l, i) => (
                               <span
                                 key={i}
-                                className="px-2.5 py-1 rounded text-xs font-bold bg-[#151719] text-[#FFB800] border border-[#51504A] font-mono"
+                                className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white text-gray-900 border border-gray-200 font-mono shadow-xs"
                               >
                                 {l}
                               </span>
@@ -536,11 +536,11 @@ export const CartModal: React.FC<CartModalProps> = ({
 
                   {/* Izoh va Tavsif (300 tagacha harf) */}
                   {selectedItem.product.description && (
-                    <div className="p-4 rounded-lg bg-[#292C2F] border border-[#51504A] space-y-1.5">
-                      <div className="text-xs text-[#B8B8B3] font-bold uppercase tracking-wider">
+                    <div className="p-4 rounded-xl bg-gray-50 border border-gray-200 space-y-1.5">
+                      <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">
                         Mahsulot Izohi va Tavsifi:
                       </div>
-                      <p className="text-xs sm:text-sm text-[#F5F5F2] leading-relaxed">
+                      <p className="text-xs sm:text-sm text-gray-700 leading-relaxed">
                         {selectedItem.product.description}
                       </p>
                     </div>
@@ -549,31 +549,31 @@ export const CartModal: React.FC<CartModalProps> = ({
                 </div>
 
                 {/* Yon (O'ng) Blok: Savatdagi Qolgan Mahsulotlar */}
-                <div className="lg:col-span-5 xl:col-span-4 bg-[#0A1931] rounded-xl border-2 border-[#1E3A6D] p-5 sm:p-6 text-white shadow-xl space-y-4">
-                  <div className="flex items-center justify-between border-b border-[#1E3A6D] pb-3.5">
+                <div className="lg:col-span-5 xl:col-span-4 bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 text-gray-900 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between border-b border-gray-200 pb-3.5">
                     <div>
-                      <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                      <h4 className="text-sm font-bold text-gray-950 uppercase tracking-wider">
                         Savatdagi Qolgan Mahsulotlar
                       </h4>
-                      <p className="text-xs text-sky-200 mt-0.5">
+                      <p className="text-xs text-gray-500 mt-0.5">
                         Ma'lumotlarini ko'rish uchun tanlang
                       </p>
                     </div>
-                    <span className="text-xs font-mono font-bold bg-[#071326] px-3 py-1 rounded-lg text-[#FFB800] border border-[#1E3A6D]">
+                    <span className="text-xs font-mono font-bold bg-gray-100 px-3 py-1 rounded-full text-gray-900 border border-gray-200">
                       {otherItems.length} ta
                     </span>
                   </div>
 
                   {otherItems.length === 0 ? (
                     <div className="py-12 text-center space-y-3">
-                      <Package className="w-12 h-12 text-sky-300/50 mx-auto" />
-                      <p className="text-xs text-sky-200 max-w-[240px] mx-auto">
+                      <Package className="w-12 h-12 text-gray-300 mx-auto" />
+                      <p className="text-xs text-gray-500 max-w-[240px] mx-auto">
                         Savatda boshqa mahsulot yo'q. Faqat ushbu tanlangan mahsulot mavjud.
                       </p>
                       <button
                         type="button"
                         onClick={() => setSelectedProductId(null)}
-                        className="bg-[#132C54] hover:bg-[#1B3B6F] text-white border border-[#2E5A9C] px-4 py-2 rounded-lg text-xs font-bold cursor-pointer"
+                        className="bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-200 px-4 py-2 rounded-xl text-xs font-bold cursor-pointer"
                       >
                         Jadval ko'rinishiga qaytish
                       </button>
@@ -587,29 +587,29 @@ export const CartModal: React.FC<CartModalProps> = ({
                             setSelectedProductId(other.product.id);
                             setActiveImageIndex(0);
                           }}
-                          className="p-3.5 rounded-lg bg-[#0F2547] hover:bg-[#132C54] border border-[#1E3A6D] hover:border-[#FFB800] transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-sm"
+                          className="p-3.5 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-amber-400 transition-all cursor-pointer flex items-center justify-between gap-3 group shadow-xs"
                           title="Ushbu mahsulot tafsilotlarini ko'rish"
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <img
                               src={other.product.image}
                               alt={other.product.title}
-                              className="w-12 h-12 rounded-lg object-cover shrink-0 bg-[#071326] border border-[#254B85] group-hover:scale-105 transition-transform"
+                              className="w-12 h-12 rounded-xl object-cover shrink-0 bg-white border border-gray-200 group-hover:scale-105 transition-transform"
                             />
                             <div className="min-w-0 space-y-1">
-                              <h5 className="text-xs sm:text-sm font-bold text-white truncate group-hover:text-[#FFB800] transition-colors">
+                              <h5 className="text-xs sm:text-sm font-bold text-gray-900 truncate group-hover:text-amber-600 transition-colors">
                                 {other.product.title}
                               </h5>
-                              <div className="text-[11px] text-sky-200">
+                              <div className="text-[11px] text-gray-500">
                                 {other.quantity} {other.product.unit} •{' '}
-                                <span className="font-mono text-[#FFB800] font-bold">
+                                <span className="font-mono text-gray-950 font-bold">
                                   {formatPrice(other.product.price * other.quantity)}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          <div className="shrink-0 flex items-center gap-1 text-xs text-[#FFB800] font-bold group-hover:translate-x-1 transition-transform">
+                          <div className="shrink-0 flex items-center gap-1 text-xs text-amber-600 font-bold group-hover:translate-x-1 transition-transform">
                             <span>Ko'rish</span>
                             <ChevronRight className="w-4 h-4" />
                           </div>
@@ -627,22 +627,22 @@ export const CartModal: React.FC<CartModalProps> = ({
             /* ============================================================ */
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-[#0A1931] flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#0A1931]" />
+                <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-900 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-[#FFB800]" />
                   <span>Tanlangan Qurilish Mahsulotlari</span>
                 </h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-white font-mono font-bold bg-[#0A1931] px-3.5 py-1.5 rounded-lg border border-[#1E3A6D] shadow-sm">
+                  <span className="text-xs text-gray-800 font-mono font-bold bg-gray-100 px-3.5 py-1.5 rounded-xl border border-gray-200 shadow-xs">
                     Jami: {items.length} xil mahsulot
                   </span>
                 </div>
               </div>
 
-              {/* To'liq Kengaytirilgan Jadval: Tyomniy Siniy */}
-              <div className="overflow-x-auto rounded-xl border-2 border-[#1E3A6D] bg-[#0A1931] shadow-xl text-white">
+              {/* To'liq Kengaytirilgan Jadval: Oq Uzum dizayni */}
+              <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-xs text-gray-900">
                 <table className="w-full text-left border-collapse min-w-[800px]">
                   <thead>
-                    <tr className="bg-[#071326] border-b border-[#1E3A6D] text-xs sm:text-sm font-bold uppercase tracking-wider text-sky-200">
+                    <tr className="bg-gray-50 border-b border-gray-200 text-xs sm:text-sm font-bold uppercase tracking-wider text-gray-600">
                       <th className="py-4 px-5 text-center w-14">№</th>
                       <th className="py-4 px-5 min-w-[260px]">Mahsulot Nomi</th>
                       <th className="py-4 px-5 min-w-[220px]">Ta'minotchi Manzili</th>
@@ -651,7 +651,7 @@ export const CartModal: React.FC<CartModalProps> = ({
                       <th className="py-4 px-5 whitespace-nowrap text-right min-w-[140px]">Umumiy Narx</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#1E3A6D] text-xs sm:text-sm md:text-base bg-[#0A1931]">
+                  <tbody className="divide-y divide-gray-200 text-xs sm:text-sm md:text-base bg-white">
                     {items.map((item, idx) => {
                       const supplierAddr = getSupplierAddress(item);
 
@@ -662,11 +662,11 @@ export const CartModal: React.FC<CartModalProps> = ({
                             setSelectedProductId(item.product.id);
                             setActiveImageIndex(0);
                           }}
-                          className="hover:bg-[#292C2F] transition-colors cursor-pointer group"
+                          className="hover:bg-gray-50/80 transition-colors cursor-pointer group"
                           title="Batafsil ma'lumotlarini ko'rish uchun bosing"
                         >
                           {/* 1. № */}
-                          <td className="py-4 px-5 text-center text-[#B8B8B3] font-mono font-bold text-sm sm:text-base align-middle">
+                          <td className="py-4 px-5 text-center text-gray-400 font-mono font-bold text-sm sm:text-base align-middle">
                             {idx + 1}
                           </td>
 
@@ -676,17 +676,17 @@ export const CartModal: React.FC<CartModalProps> = ({
                               <img
                                 src={item.product.image}
                                 alt={item.product.title}
-                                className="w-12 h-12 rounded-lg object-cover shrink-0 bg-[#151719] border border-[#51504A] shadow-sm group-hover:scale-105 transition-transform"
+                                className="w-12 h-12 rounded-xl object-cover shrink-0 bg-gray-50 border border-gray-200 shadow-xs group-hover:scale-105 transition-transform"
                               />
                               <div className="space-y-1">
-                                <span className="font-bold text-[#F5F5F2] text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-[#FFB800] transition-colors">
+                                <span className="font-bold text-gray-900 text-sm sm:text-base leading-snug line-clamp-2 group-hover:text-amber-600 transition-colors">
                                   {item.product.title}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className="inline-block text-xs text-[#FFB800] font-mono font-bold">
+                                  <span className="inline-block text-xs text-amber-600 font-mono font-bold">
                                     {item.product.category}
                                   </span>
-                                  <span className="text-[11px] text-[#B8B8B3] opacity-80 group-hover:opacity-100 font-medium">
+                                  <span className="text-[11px] text-gray-400 opacity-80 group-hover:opacity-100 font-medium">
                                     (Batafsil →)
                                   </span>
                                 </div>
@@ -698,13 +698,13 @@ export const CartModal: React.FC<CartModalProps> = ({
                           <td className="py-4 px-5 align-middle">
                             <div className="space-y-1 max-w-[240px]">
                               <div
-                                className="font-bold text-[#F5F5F2] text-xs sm:text-sm truncate"
+                                className="font-bold text-gray-900 text-xs sm:text-sm truncate"
                                 title={item.product.supplierName || "Rasmiy Ta'minotchi"}
                               >
                                 {item.product.supplierName || "Rasmiy Ta'minotchi"}
                               </div>
                               <div
-                                className="flex items-center gap-1.5 text-xs text-[#B8B8B3] truncate"
+                                className="flex items-center gap-1.5 text-xs text-gray-500 truncate"
                                 title={supplierAddr}
                               >
                                 <MapPin className="w-3.5 h-3.5 text-[#FFB800] shrink-0" />
@@ -715,10 +715,10 @@ export const CartModal: React.FC<CartModalProps> = ({
 
                           {/* 4. Narxi */}
                           <td className="py-4 px-5 text-right whitespace-nowrap align-middle">
-                            <div className="font-bold text-[#F5F5F2] text-sm sm:text-base font-mono">
+                            <div className="font-bold text-gray-900 text-sm sm:text-base font-mono">
                               {formatPrice(item.product.price)}
                             </div>
-                            <div className="text-xs text-[#B8B8B3] font-mono mt-0.5">
+                            <div className="text-xs text-gray-400 font-mono mt-0.5">
                               1 {item.product.unit} uchun
                             </div>
                           </td>
@@ -728,35 +728,35 @@ export const CartModal: React.FC<CartModalProps> = ({
                             className="py-4 px-5 text-center align-middle whitespace-nowrap"
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <div className="inline-flex items-center gap-2 bg-[#151719] px-3 py-1.5 rounded-lg border border-[#51504A]">
+                            <div className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200">
                               <button
                                 type="button"
                                 onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                                className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors cursor-pointer"
+                                className="p-1 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                                 title="Kamaytirish"
                               >
                                 <Minus className="w-4 h-4" />
                               </button>
-                              <span className="text-sm sm:text-base font-bold text-[#F5F5F2] px-2.5 min-w-[32px] text-center font-mono">
+                              <span className="text-sm sm:text-base font-bold text-gray-950 px-2.5 min-w-[32px] text-center font-mono">
                                 {item.quantity}
                               </span>
                               <button
                                 type="button"
                                 onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
-                                className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors cursor-pointer"
+                                className="p-1 text-gray-500 hover:text-gray-900 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
                                 title="Oshirish"
                               >
                                 <Plus className="w-4 h-4" />
                               </button>
                             </div>
-                            <div className="text-xs text-[#B8B8B3] mt-1 font-bold font-mono">
+                            <div className="text-xs text-gray-500 mt-1 font-bold font-mono">
                               {item.quantity} {item.product.unit}
                             </div>
                           </td>
 
                           {/* 6. Umumiy Narx */}
                           <td className="py-4 px-5 text-right whitespace-nowrap align-middle">
-                            <div className="text-sm sm:text-base md:text-lg font-bold text-[#FFB800] font-mono">
+                            <div className="text-sm sm:text-base md:text-lg font-bold text-gray-950 font-mono">
                               {formatPrice(item.product.price * item.quantity)}
                             </div>
                           </td>
@@ -766,21 +766,21 @@ export const CartModal: React.FC<CartModalProps> = ({
                   </tbody>
 
                   {/* Jadval Tagidagi Umumiy Narx Qatori */}
-                  <tfoot className="bg-[#071326] border-t border-[#1E3A6D] font-bold">
+                  <tfoot className="bg-gray-50 border-t border-gray-200 font-bold">
                     <tr>
                       <td
                         colSpan={3}
-                        className="py-4 px-6 text-left text-sky-200 uppercase tracking-wider text-xs sm:text-sm font-semibold"
+                        className="py-4 px-6 text-left text-gray-600 uppercase tracking-wider text-xs sm:text-sm font-semibold"
                       >
                         Jami: {items.reduce((s, i) => s + i.quantity, 0)} ta birlik tovar | {items.length} xil mahsulot
                       </td>
                       <td
                         colSpan={2}
-                        className="py-4 px-4 text-right text-[#FFB800] uppercase tracking-wider font-bold text-xs sm:text-sm"
+                        className="py-4 px-4 text-right text-gray-700 uppercase tracking-wider font-bold text-xs sm:text-sm"
                       >
                         Umumiy Narx:
                       </td>
-                      <td className="py-4 px-5 text-right text-base sm:text-xl md:text-2xl text-[#FFB800] font-mono font-bold whitespace-nowrap">
+                      <td className="py-4 px-5 text-right text-base sm:text-xl md:text-2xl text-gray-950 font-mono font-bold whitespace-nowrap">
                         {formatPrice(grandTotal)}
                       </td>
                     </tr>
@@ -791,21 +791,21 @@ export const CartModal: React.FC<CartModalProps> = ({
           )}
 
           {error && (
-            <div className="flex items-center gap-2 p-3.5 rounded-lg bg-red-500/15 text-red-500 border border-red-500/40 text-xs font-black animate-fadeIn">
+            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs font-bold animate-fadeIn">
               <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
         </div>
 
-        {/* Footer actions: Tyomniy Siniy panel, Buyurtma berish tugmasi SARIQ */}
+        {/* Footer actions: Oq Uzum paneli, Asosiy Buyurtma berish tugmasi SARIQ */}
         {items.length > 0 && (
-          <div className="px-6 sm:px-8 py-5 border-t-2 border-[#1E3A6D] bg-gradient-to-r from-[#0A1931] to-[#071326] text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="px-6 sm:px-8 py-5 border-t border-gray-200 bg-white text-gray-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
             <div className="flex items-baseline gap-3">
-              <span className="text-xs sm:text-sm text-sky-200 font-bold uppercase tracking-wider">
+              <span className="text-xs sm:text-sm text-gray-500 font-bold uppercase tracking-wider">
                 To'lanadigan Jami Summa:
               </span>
-              <span className="text-xl sm:text-2xl md:text-3xl font-bold text-[#FFB800] font-mono tracking-tight">
+              <span className="text-xl sm:text-2xl md:text-3xl font-extrabold text-gray-950 font-mono tracking-tight">
                 {formatPrice(grandTotal)}
               </span>
             </div>
@@ -814,7 +814,7 @@ export const CartModal: React.FC<CartModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="bg-[#132C54] hover:bg-[#1B3B6F] text-white border border-[#2E5A9C] px-5 py-3 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-colors"
+                className="bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 px-5 py-3 rounded-xl text-xs sm:text-sm font-bold cursor-pointer transition-colors"
               >
                 Bekor qilish
               </button>
@@ -823,9 +823,9 @@ export const CartModal: React.FC<CartModalProps> = ({
                 type="button"
                 onClick={handleStartCheckout}
                 disabled={loading}
-                className="bg-[#FFB800] hover:bg-[#FFC928] text-black border border-[#E5A600] flex items-center gap-2.5 px-6 sm:px-8 py-3 rounded-lg font-black text-sm sm:text-base shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer transition-all"
+                className="bg-[#FFB800] hover:bg-[#FFC928] text-gray-950 border border-[#E5A600] flex items-center gap-2.5 px-6 sm:px-8 py-3 rounded-xl font-bold text-sm sm:text-base shadow-xs active:scale-95 disabled:opacity-50 cursor-pointer transition-all"
               >
-                <CheckCircle className="w-5 h-5 stroke-[2.5] text-black" />
+                <CheckCircle className="w-5 h-5 stroke-[2.5] text-gray-950" />
                 <span>Buyurtma berish</span>
               </button>
             </div>

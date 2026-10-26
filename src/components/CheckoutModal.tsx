@@ -509,24 +509,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] w-screen h-screen bg-[#151719] flex flex-col overflow-hidden animate-fadeIn">
-      <div className="bg-[#151719] text-[#F5F5F2] w-full h-full flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-[60] w-screen h-screen bg-white flex flex-col overflow-hidden animate-fadeIn text-gray-900">
+      <div className="bg-white text-gray-900 w-full h-full flex flex-col overflow-hidden">
         {/* Modal Top Header */}
-        <div className="px-5 sm:px-8 py-4 border-b border-[#51504A] bg-[#1D2023] flex items-center justify-between">
+        <div className="px-5 sm:px-8 py-4 border-b border-gray-200 bg-white flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-[#292C2F] text-[#FFB800] border border-[#51504A]">
+            <div className="p-2.5 rounded-xl bg-amber-50 text-[#FFB800] border border-amber-200">
               <Package className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg sm:text-xl font-bold text-[#F5F5F2]">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-950">
                   Jismoniy Shaxs Kabineti: Buyurtma Berish
                 </h2>
-                <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#292C2F] text-[#FFB800] border border-[#51504A]">
+                <span className="hidden sm:inline-block px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-100 text-amber-800 border border-amber-200">
                   4 BOSQICHLI TIZIM
                 </span>
               </div>
-              <p className="text-xs text-[#B8B8B3]">
+              <p className="text-xs text-gray-500">
                 Buyurtmani tasdiqlash → Manzilni tasdiqlash → Telefon raqam → To'lov
               </p>
             </div>
@@ -534,7 +534,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
           <button
             onClick={onClose}
-            className="text-[#B8B8B3] hover:text-[#F5F5F2] p-2 rounded-lg bg-[#222528] hover:bg-[#292C2F] border border-[#51504A] transition-all cursor-pointer"
+            className="text-gray-500 hover:text-gray-900 p-2 rounded-xl bg-gray-50 hover:bg-gray-100 border border-gray-200 transition-all cursor-pointer"
             title="Yopish"
           >
             ✕
@@ -543,26 +543,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {/* 4 Ta Bosqich Progress Bar (Step Indicator) */}
         {step < 5 && (
-          <div className="px-4 sm:px-8 py-3.5 bg-[#222528] border-b border-[#51504A]">
+          <div className="px-4 sm:px-8 py-3.5 bg-gray-50 border-b border-gray-200">
             <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
               {/* 1. Buyurtmani tasdiqlash */}
               <div
                 onClick={() => setStep(1)}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-lg cursor-pointer transition-all border ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-xl cursor-pointer transition-all border ${
                   step === 1
-                    ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928] shadow-sm'
+                    ? 'bg-[#FFB800] text-gray-950 font-bold border-[#E5A600] shadow-xs'
                     : step > 1
-                    ? 'bg-[#292C2F] text-[#F5F5F2] border-[#51504A] font-medium'
-                    : 'bg-[#151719] text-[#B8B8B3] border-[#51504A]'
+                    ? 'bg-white text-gray-900 border-gray-200 font-medium'
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
                 }`}
               >
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold font-mono ${
                     step === 1
-                      ? 'bg-[#151719] text-[#FFB800]'
+                      ? 'bg-white text-gray-950'
                       : step > 1
-                      ? 'bg-[#FFB800] text-[#151719]'
-                      : 'bg-[#292C2F] text-[#B8B8B3]'
+                      ? 'bg-[#FFB800] text-gray-950'
+                      : 'bg-gray-200 text-gray-500'
                   }`}
                 >
                   {step > 1 ? '✓' : '1'}
@@ -573,21 +573,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* 2. Manzilni tasdiqlash */}
               <div
                 onClick={() => step > 1 && setStep(2)}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-lg transition-all border ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-xl transition-all border ${
                   step === 2
-                    ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928] shadow-sm cursor-pointer'
+                    ? 'bg-[#FFB800] text-gray-950 font-bold border-[#E5A600] shadow-xs cursor-pointer'
                     : step > 2
-                    ? 'bg-[#292C2F] text-[#F5F5F2] border-[#51504A] font-medium cursor-pointer'
-                    : 'bg-[#151719] text-[#B8B8B3] border-[#51504A] opacity-60'
+                    ? 'bg-white text-gray-900 border-gray-200 font-medium cursor-pointer'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 opacity-60'
                 }`}
               >
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold font-mono ${
                     step === 2
-                      ? 'bg-[#151719] text-[#FFB800]'
+                      ? 'bg-white text-gray-950'
                       : step > 2
-                      ? 'bg-[#FFB800] text-[#151719]'
-                      : 'bg-[#292C2F] text-[#B8B8B3]'
+                      ? 'bg-[#FFB800] text-gray-950'
+                      : 'bg-gray-200 text-gray-500'
                   }`}
                 >
                   {step > 2 ? '✓' : '2'}
@@ -598,21 +598,21 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* 3. Telefon raqam */}
               <div
                 onClick={() => step > 2 && setStep(3)}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-lg transition-all border ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-xl transition-all border ${
                   step === 3
-                    ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928] shadow-sm cursor-pointer'
+                    ? 'bg-[#FFB800] text-gray-950 font-bold border-[#E5A600] shadow-xs cursor-pointer'
                     : step > 3
-                    ? 'bg-[#292C2F] text-[#F5F5F2] border-[#51504A] font-medium cursor-pointer'
-                    : 'bg-[#151719] text-[#B8B8B3] border-[#51504A] opacity-60'
+                    ? 'bg-white text-gray-900 border-gray-200 font-medium cursor-pointer'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 opacity-60'
                 }`}
               >
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold font-mono ${
                     step === 3
-                      ? 'bg-[#151719] text-[#FFB800]'
+                      ? 'bg-white text-gray-950'
                       : step > 3
-                      ? 'bg-[#FFB800] text-[#151719]'
-                      : 'bg-[#292C2F] text-[#B8B8B3]'
+                      ? 'bg-[#FFB800] text-gray-950'
+                      : 'bg-gray-200 text-gray-500'
                   }`}
                 >
                   {step > 3 ? '✓' : '3'}
@@ -623,15 +623,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               {/* 4. To'lov */}
               <div
                 onClick={() => step > 3 && setStep(4)}
-                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-lg transition-all border ${
+                className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 p-2 rounded-xl transition-all border ${
                   step === 4
-                    ? 'bg-[#FFB800] text-[#151719] font-bold border-[#FFC928] shadow-sm cursor-pointer'
-                    : 'bg-[#151719] text-[#B8B8B3] border-[#51504A] opacity-60'
+                    ? 'bg-[#FFB800] text-gray-950 font-bold border-[#E5A600] shadow-xs cursor-pointer'
+                    : 'bg-gray-100 text-gray-400 border-gray-200 opacity-60'
                 }`}
               >
                 <div
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold font-mono ${
-                    step === 4 ? 'bg-[#151719] text-[#FFB800]' : 'bg-[#292C2F] text-[#B8B8B3]'
+                    step === 4 ? 'bg-white text-gray-950' : 'bg-gray-200 text-gray-500'
                   }`}
                 >
                   4
@@ -643,10 +643,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         )}
 
         {/* Modal Body */}
-        <div className="p-5 sm:p-7 overflow-y-auto space-y-6 flex-1 bg-[#040e24]">
+        <div className="p-5 sm:p-7 overflow-y-auto space-y-6 flex-1 bg-white">
           {error && (
-            <div className="flex items-center gap-2 p-3.5 rounded-2xl bg-red-950/80 text-red-300 border border-red-600 text-xs font-bold animate-fadeIn">
-              <AlertCircle className="w-5 h-5 shrink-0 text-red-400" />
+            <div className="flex items-center gap-2 p-3.5 rounded-xl bg-red-50 text-red-600 border border-red-200 text-xs font-bold animate-fadeIn">
+              <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
               <span>{error}</span>
             </div>
           )}
@@ -656,30 +656,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           {/* ============================================================== */}
           {step === 1 && (
             <div className="space-y-6 animate-fadeIn">
-              <div className="pb-3 border-b border-blue-500/30">
-                <h3 className="text-base sm:text-lg font-black text-amber-400 flex items-center gap-2">
-                  <Package className="w-5 h-5" />
+              <div className="pb-3 border-b border-gray-200">
+                <h3 className="text-base sm:text-lg font-bold text-gray-950 flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#FFB800]" />
                   1-Bosqich: Buyurtma qilingan tovarlar ro'yxatini tasdiqlash
                 </h3>
               </div>
 
               {items.length === 0 ? (
-                <div className="text-center py-16 space-y-3 bg-[#07193f] rounded-2xl border border-blue-500/40 p-6">
-                  <Package className="w-12 h-12 text-slate-500 mx-auto" />
-                  <p className="text-[#B8B8B3] font-bold text-sm">Hozirda savatda mahsulot yo'q.</p>
+                <div className="text-center py-16 space-y-3 bg-gray-50 rounded-2xl border border-gray-200 p-6">
+                  <Package className="w-12 h-12 text-gray-400 mx-auto" />
+                  <p className="text-gray-500 font-bold text-sm">Hozirda savatda mahsulot yo'q.</p>
                   <button
                     onClick={onClose}
-                    className="btn-industrial-yellow px-5 py-2.5 rounded-lg text-xs font-bold cursor-pointer"
+                    className="btn-industrial-yellow px-5 py-2.5 rounded-xl text-xs font-bold cursor-pointer"
                   >
                     Bunkerdan mahsulot tanlash
                   </button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="overflow-x-auto rounded-lg border border-[#51504A] bg-[#151719]">
+                  <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-xs">
                     <table className="w-full text-left border-collapse text-xs sm:text-sm">
                       <thead>
-                        <tr className="bg-[#222528] text-[#F5F5F2] font-bold border-b border-[#51504A]">
+                        <tr className="bg-gray-50 text-gray-700 font-bold border-b border-gray-200">
                           <th className="py-3 px-4">№</th>
                           <th className="py-3 px-4">Mahsulot</th>
                           <th className="py-3 px-4">Narxi</th>
@@ -688,42 +688,42 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                           <th className="py-3 px-4 text-center">O'chirish</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#51504A]/60">
+                      <tbody className="divide-y divide-gray-200">
                         {items.map((item, idx) => (
-                          <tr key={item.product.id} className="hover:bg-[#222528] transition-colors">
-                            <td className="py-3.5 px-4 font-mono font-bold text-[#B8B8B3]">{idx + 1}</td>
+                          <tr key={item.product.id} className="hover:bg-gray-50/80 transition-colors">
+                            <td className="py-3.5 px-4 font-mono font-bold text-gray-400">{idx + 1}</td>
                             <td className="py-3.5 px-4">
                               <div className="flex items-center gap-3">
                                 <img
                                   src={item.product.image}
                                   alt={item.product.title}
-                                  className="w-12 h-12 rounded-lg object-cover bg-[#222528] border border-[#51504A] shrink-0"
+                                  className="w-12 h-12 rounded-lg object-cover bg-gray-50 border border-gray-200 shrink-0"
                                 />
                                 <div>
-                                  <div className="font-bold text-[#F5F5F2] leading-snug line-clamp-1">
+                                  <div className="font-bold text-gray-900 leading-snug line-clamp-1">
                                     {item.product.title}
                                   </div>
-                                  <div className="text-[11px] text-[#FFB800]">
+                                  <div className="text-[11px] text-amber-600 font-semibold">
                                     {item.product.category}
                                   </div>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap text-[#F5F5F2]">
+                            <td className="py-3.5 px-4 font-mono font-bold whitespace-nowrap text-gray-900">
                               {formatPrice(item.product.price)}
                             </td>
                             <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                              <div className="inline-flex items-center gap-2 bg-[#222528] px-2 py-1 rounded-lg border border-[#51504A]">
+                              <div className="inline-flex items-center gap-2 bg-gray-50 px-2 py-1 rounded-lg border border-gray-200">
                                 <button
                                   type="button"
                                   onClick={() =>
                                     onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))
                                   }
-                                  className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors"
+                                  className="p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-200 transition-colors cursor-pointer"
                                 >
                                   <Minus className="w-3.5 h-3.5" />
                                 </button>
-                                <span className="text-xs font-bold px-2 min-w-[44px] text-center font-mono text-[#F5F5F2]">
+                                <span className="text-xs font-bold px-2 min-w-[44px] text-center font-mono text-gray-950">
                                   {item.quantity} {item.product.unit}
                                 </span>
                                 <button
@@ -731,20 +731,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                                   onClick={() =>
                                     onUpdateQuantity(item.product.id, item.quantity + 1)
                                   }
-                                  className="p-1 text-[#B8B8B3] hover:text-[#F5F5F2] rounded hover:bg-[#292C2F] transition-colors"
+                                  className="p-1 text-gray-500 hover:text-gray-900 rounded hover:bg-gray-200 transition-colors cursor-pointer"
                                 >
                                   <Plus className="w-3.5 h-3.5" />
                                 </button>
                               </div>
                             </td>
-                            <td className="py-3.5 px-4 text-right font-mono font-bold text-[#FFB800] whitespace-nowrap">
+                            <td className="py-3.5 px-4 text-right font-mono font-bold text-gray-950 whitespace-nowrap">
                               {formatPrice(item.product.price * item.quantity)}
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <button
                                 type="button"
                                 onClick={() => onRemoveItem(item.product.id)}
-                                className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -757,19 +757,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
                   {/* Summary Box */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    <div className="bg-[#222528] p-4 rounded-lg border border-[#51504A] space-y-2 text-xs">
-                      <div className="font-bold text-[#FFB800] flex items-center gap-1.5">
-                        <ShieldCheck className="w-4 h-4" />
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-2 text-xs">
+                      <div className="font-bold text-gray-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-[#FFB800]" />
                         Platforma Kafolati
                       </div>
-                      <p className="text-[#B8B8B3] leading-relaxed text-[11px]">
+                      <p className="text-gray-500 leading-relaxed text-[11px]">
                         • Barcha mahsulotlar O'zbekiston standartlariga muvofiq sertifikatlangan.
                       </p>
                     </div>
 
-                    <div className="bg-[#222528] p-4 rounded-lg border border-[#51504A] flex items-center justify-between">
-                      <span className="text-sm font-bold text-[#F5F5F2]">Jami To'lanadigan Summa:</span>
-                      <span className="text-xl font-black text-[#FFB800] font-mono">
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 flex items-center justify-between">
+                      <span className="text-sm font-bold text-gray-700">Jami To'lanadigan Summa:</span>
+                      <span className="text-xl font-extrabold text-gray-950 font-mono">
                         {formatPrice(grandTotal)}
                       </span>
                     </div>
@@ -1424,7 +1424,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
         {/* Modal Bottom Actions */}
         {step < 5 && (
-          <div className="px-5 sm:px-8 py-4 border-t border-[#51504A] bg-[#1D2023] flex items-center justify-between gap-3">
+          <div className="px-5 sm:px-8 py-4 border-t border-gray-200 bg-white flex items-center justify-between gap-3 shadow-sm">
             <div>
               {step > 1 ? (
                 <button
