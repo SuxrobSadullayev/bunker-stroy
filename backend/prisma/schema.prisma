@@ -1,0 +1,205 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  INDIVIDUAL
+  LEGAL
+  CUSTOMER
+  CONTRACTOR
+  LOGISTICS_DRIVER
+  SPECIALIST
+  SUPPLIER
+  ADMIN
+  BUNKER_ADMIN
+}
+
+enum CompanyStatus {
+  ACTIVE
+  LIQUIDATED
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  ASSIGNED
+  IN_TRANSIT
+  DELIVERED
+  CANCELLED
+}
+
+enum OrderType {
+  B2C
+  B2B
+}
+
+enum VehicleType {
+  SAMOSVAL
+  AVTOKRAN
+  MIKSER
+  MANIPULYATOR
+  GAZEL
+}
+
+model User {
+  id                    String            @id @default(uuid())
+  phone                 String            @unique
+  email                 String?
+  passwordHash          String?
+  firstName             String?
+  lastName              String?
+  displayName           String?
+  role                  Role              @default(CUSTOMER)
+  userType              String?           // individual / legal
+  inn                   String?
+  companyName           String?
+  region                String?
+  district              String?
+  address               String?
+  isSubAdmin            Boolean           @default(false)
+  subAdminPermissions   String?           // JSON array: ["reports", "suppliers", ...]
+  status                String            @default("active") // active, blocked, pending
+  verificationStatus    String            @default("pending") // pending, verified, rejected
+  eimzoVerifiedAt       DateTime?
+  eimzoSerialNumber     String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  supplierProfile       SupplierProfile?
+  orders                Order[]           @relation("CustomerOrders")
+  auditLogs             AuditLog[]
+
+  @@index([inn])
+  @@index([role])
+}
+
+model SupplierProfile {
+  id                    String            @id @default(uuid())
+  userId                String            @unique
+  user                  User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName           String
+  inn                   String
+  cabinetType           String            @default("partner") // manufacturer / partner
+  directorName          String?
+  rating                Float             @default(5.0)
+  commissionRate        Float             @default(5.0) // %
+  commissionBasis       String            @default("profit") // total / profit
+  status                String            @default("active") // active, blocked, pending
+  contractNumber        String?
+  contractPdfData       String?
+  productsCount         Int               @default(0)
+  totalSalesSum         Float             @default(0)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  products              Product[]
+  supplierOrders        Order[]           @relation("SupplierOrders")
+
+  @@index([inn])
+}
+
+model Product {
+  id                    String            @id @default(uuid())
+  supplierId            String
+  supplier              SupplierProfile   @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  title                 String
+  category              String
+  description           String?
+  price                 Float
+  costPrice             Float             @default(0)
+  stock                 Int               @default(0)
+  unit                  String            @default("dona")
+  minOrder              Int               @default(1)
+  images                String?           // JSON array string
+  isEscoCertified       Boolean           @default(false)
+  salesCount            Int               @default(0)
+  status                String            @default("active") // active, inactive
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  orderItems            OrderItem[]
+
+  @@index([category])
+  @@index([supplierId])
+}
+
+model Order {
+  id                    String            @id @default(uuid())
+  orderNumber           String            @unique
+  customerId            String?
+  customer              User?             @relation("CustomerOrders", fields: [customerId], references: [id])
+  supplierId            String?
+  supplier              SupplierProfile?  @relation("SupplierOrders", fields: [supplierId], references: [id])
+  orderType             OrderType         @default(B2C)
+  status                OrderStatus       @default(PENDING)
+  totalSum              Float
+  commissionSum         Float             @default(0)
+  netSum                Float             @default(0)
+  customerName          String
+  customerPhone         String
+  deliveryAddress       String
+  deliveryRegion        String?
+  driverPhone           String?
+  notes                 String?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  items                 OrderItem[]
+
+  @@index([status])
+  @@index([customerId])
+  @@index([supplierId])
+}
+
+model OrderItem {
+  id                    String            @id @default(uuid())
+  orderId               String
+  order                 Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId             String?
+  product               Product?          @relation(fields: [productId], references: [id])
+  productTitle          String
+  category              String
+  quantity              Int
+  unit                  String
+  price                 Float
+  totalSum              Float
+  costPrice             Float             @default(0)
+  profitSum             Float             @default(0)
+}
+
+model LogisticsVehicle {
+  id                    String            @id @default(uuid())
+  type                  VehicleType
+  model                 String
+  plateNumber           String            @unique
+  capacity              String
+  driverName            String
+  driverPhone           String
+  region                String
+  status                String            @default("available") // available, busy, maintenance
+  basePricePerKm        Float             @default(15000)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+}
+
+model AuditLog {
+  id                    String            @id @default(uuid())
+  userId                String?
+  user                  User?             @relation(fields: [userId], references: [id])
+  actor                 String
+  action                String
+  category              String
+  details               String
+  ip                    String?
+  level                 String            @default("info")
+  createdAt             DateTime          @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+}
